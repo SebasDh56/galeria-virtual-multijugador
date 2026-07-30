@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>Galería Virtual 3D</title>
+
+  <link rel="stylesheet" href="/css/gallery.css">
+
+  <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+
+  <script src="/js/components/sprint-controls.js"></script>
+  <script src="/js/components/video-interaction.js"></script>
+</head>
+
+<body>
+  <div class="gallery-interface">
+    <section class="player-information">
+      <span class="connection-indicator"></span>
+
+      <div>
+        <small>Usuario conectado</small>
+        <strong id="current-nickname">Visitante</strong>
+      </div>
+    </section>
+
+    <section class="controls-help">
+      <p><kbd>WASD</kbd> Moverse</p>
+      <p><kbd>Mouse</kbd> Mirar</p>
+      <p><kbd>Shift</kbd> Correr</p>
+      <p><kbd>Clic</kbd> Interactuar</p>
+    </section>
+
+    <div class="crosshair" aria-hidden="true"></div>
+  </div>
+
+  <a-scene
+    background="color: #19191e"
+    renderer="
+      antialias: true;
+      colorManagement: true;
+      physicallyCorrectLights: true
+    "
+    loading-screen="dotsColor: #d8ad55; backgroundColor: #101014"
+  >
+    <a-assets timeout="10000">
+      <!-- Más adelante agregaremos modelos GLB y videos MP4 aquí. -->
+    </a-assets>
+
+    <!-- Piso -->
+    <a-plane
+      position="0 0 0"
+      rotation="-90 0 0"
+      width="20"
+      height="20"
+      color="#5f5f64"
+      material="roughness: 0.9"
+    ></a-plane>
+
+    <!-- Techo -->
+    <a-plane
+      position="0 5 0"
+      rotation="90 0 0"
+      width="20"
+      height="20"
+      color="#dfdfdf"
+    ></a-plane>
+
+    <!-- Pared frontal -->
+    <a-box
+      position="0 2.5 -10"
+      width="20"
+      height="5"
+      depth="0.2"
+      color="#e7e4df"
+    ></a-box>
+
+    <!-- Pared posterior -->
+    <a-box
+      position="0 2.5 10"
+      width="20"
+      height="5"
+      depth="0.2"
+      color="#e7e4df"
+    ></a-box>
+
+    <!-- Pared izquierda -->
+    <a-box
+      position="-10 2.5 0"
+      width="0.2"
+      height="5"
+      depth="20"
+      color="#d9d6d0"
+    ></a-box>
+
+    <!-- Pared derecha -->
+    <a-box
+      position="10 2.5 0"
+      width="0.2"
+      height="5"
+      depth="20"
+      color="#d9d6d0"
+    ></a-box>
+
+    <!-- Cuadro decorativo -->
+    <a-box
+      position="0 2.5 -9.82"
+      width="5"
+      height="3"
+      depth="0.12"
+      color="#202025"
+    ></a-box>
+
+    <a-plane
+      position="0 2.5 -9.74"
+      width="4.5"
+      height="2.5"
+      color="#b77b4d"
+      class="interactive-artwork"
+    ></a-plane>
+
+    <!-- Pedestales -->
+    <a-box
+      position="-4 0.75 -3"
+      width="2"
+      height="1.5"
+      depth="2"
+      color="#e2dfd9"
+    ></a-box>
+
+    <a-sphere
+      position="-4 2 -3"
+      radius="0.8"
+      color="#bc9360"
+      roughness="0.6"
+    ></a-sphere>
+
+    <a-box
+      position="4 0.75 -3"
+      width="2"
+      height="1.5"
+      depth="2"
+      color="#e2dfd9"
+    ></a-box>
+
+    <a-torus-knot
+      position="4 2 -3"
+      radius="0.65"
+      radius-tubular="0.18"
+      color="#585863"
+    ></a-torus-knot>
+
+    <!-- Iluminación -->
+    <a-entity
+      light="
+        type: ambient;
+        color: #ffffff;
+        intensity: 0.55
+      "
+    ></a-entity>
+
+    <a-entity
+      position="0 4 0"
+      light="
+        type: point;
+        color: #ffffff;
+        intensity: 1.2;
+        distance: 18;
+        decay: 2
+      "
+    ></a-entity>
+
+    <a-entity
+      position="0 4 -7"
+      rotation="-35 0 0"
+      light="
+        type: spot;
+        color: #fff5df;
+        intensity: 1.4;
+        angle: 45;
+        penumbra: 0.5;
+        target: #artwork-target
+      "
+    ></a-entity>
+
+    <a-entity
+      id="artwork-target"
+      position="0 2.5 -9.7"
+    ></a-entity>
+
+    <!-- Jugador -->
+    <a-entity
+      id="player"
+      position="0 0 6"
+      sprint-controls
+    >
+      <a-camera
+        id="camera"
+        position="0 1.6 0"
+        wasd-controls="acceleration: 22"
+        look-controls="pointerLockEnabled: true"
+      >
+        <a-cursor
+          raycaster="objects: .interactive-artwork; far: 8"
+          fuse="false"
+          material="
+            color: #ffffff;
+            shader: flat;
+            opacity: 0
+          "
+        ></a-cursor>
+      </a-camera>
+    </a-entity>
+  </a-scene>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
