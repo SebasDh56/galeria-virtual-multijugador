@@ -1,19 +1,29 @@
 {
   "name": "galeria-virtual-multijugador",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Galería de arte virtual multijugador construida con A-Frame, Three.js, Express y Socket.IO.",
+  "main": "server.js",
   "scripts": {
-  "start": "node server.js",
-  "dev": "nodemon server.js" 
-},
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "check": "node --check server.js"
+  },
+  "engines": {
+    "node": ">=20 <23"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/SebasDh56/galeria-virtual-multijugador.git"
   },
-  "keywords": [],
+  "keywords": [
+    "aframe",
+    "threejs",
+    "socket.io",
+    "galeria-virtual",
+    "metaverso"
+  ],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "type": "commonjs",
   "bugs": {
     "url": "https://github.com/SebasDh56/galeria-virtual-multijugador/issues"

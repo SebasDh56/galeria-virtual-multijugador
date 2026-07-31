@@ -1,12 +1,16 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    
   <meta charset="UTF-8">
 
   <meta
     name="viewport"
-    content="width=device-width, initial-scale=1.0"
+    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+  >
+
+  <meta
+    name="description"
+    content="Galería de arte virtual multijugador de la UDLA"
   >
 
   <title>Galería Virtual 3D</title>
@@ -14,73 +18,447 @@
   <link rel="stylesheet" href="/css/gallery.css">
 
   <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
-<script src="/socket.io/socket.io.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
 
-<script src="/js/components/gallery-builder.js"></script>
-<script src="/js/components/player-controller.js"></script>
-<script src="/js/components/avatar-animator.js"></script>
-<script src="/js/components/third-person-camera.js"></script>
-<script src="/js/components/view-switcher.js"></script>
-<script src="/js/components/video-interaction.js"></script>
+  <script src="/js/components/video-interaction.js"></script>
+  <script src="/js/components/gallery-builder.js"></script>
+  <script src="/js/components/player-controller.js"></script>
+  <script src="/js/components/avatar-appearance.js"></script>
+  <script src="/js/components/avatar-animator.js"></script>
+  <script src="/js/components/third-person-camera.js"></script>
+  <script src="/js/components/view-switcher.js"></script>
+  <script src="/js/components/mobile-controls.js"></script>
+  <script src="/js/components/adaptive-performance.js"></script>
+  <script src="/js/components/multiplayer-manager.js"></script>
 </head>
 
 <body>
   <div class="gallery-interface">
     <section class="player-information">
-      <span class="connection-indicator"></span>
+      <span class="connection-indicator" aria-hidden="true"></span>
 
       <div>
         <small>Usuario conectado</small>
         <strong id="current-nickname">Visitante</strong>
+        <span class="online-players">
+          <strong id="online-players-count">1</strong> en sala
+        </span>
       </div>
-   <section class="controls-help">
-  <p><kbd>WASD</kbd> Moverse</p>
-  <p><kbd>Mouse</kbd> Mirar</p>
-  <p><kbd>Shift</kbd> Correr</p>
-  <p><kbd>V</kbd> Cambiar vista</p>
-  <p><kbd>Clic</kbd> Interactuar</p>
+    </section>
 
-  <div class="view-status">
-    <span>Vista actual</span>
-    <strong id="current-view-label">
-      Primera persona
-    </strong>
-  </div>
-</section>
+    <section class="controls-help">
+      <p><kbd>WASD</kbd> Moverse</p>
+      <p><kbd>Mouse</kbd> Mirar</p>
+      <p><kbd>Shift</kbd> Correr</p>
+      <p><kbd>Espacio</kbd> Saltar</p>
+      <p><kbd>H</kbd> Saludar</p>
+      <p><kbd>V</kbd> Cambiar vista</p>
+      <p><kbd>Clic</kbd> Interactuar</p>
+
+      <div class="view-status">
+        <span>Vista actual</span>
+        <strong id="current-view-label">Tercera persona</strong>
+      </div>
+    </section>
+
+    <p
+      id="interaction-status"
+      class="interaction-status"
+      role="status"
+      aria-live="polite"
+    ></p>
 
     <div class="crosshair" aria-hidden="true"></div>
   </div>
 
-  <a-scene
-  background="color: #575757"
-  renderer="
-    antialias: true;
-    colorManagement: true;
-    physicallyCorrectLights: true
-  "
->
-  <a-assets>
-    <!-- Los videos y modelos se agregarán aquí. -->
-  </a-assets>
-
-  <a-entity
-    id="gallery-environment"
-    gallery-builder
-  ></a-entity>
-
-  <a-entity
-    id="player-rig"
-    position="0 0 11"
-    player-controller
-    view-switcher="defaultView: first"
+  <div
+    id="mobile-controls"
+    class="mobile-controls"
+    aria-label="Controles táctiles"
+    aria-hidden="true"
   >
-    <!-- Avatar y cámaras -->
+    <div
+      id="mobile-look-zone"
+      class="mobile-look-zone"
+      aria-hidden="true"
+    >
+      <span>Desliza para mirar</span>
+    </div>
 
-    
-  </a-entity>
+    <div
+      id="movement-joystick"
+      class="movement-joystick"
+      aria-label="Control de movimiento"
+    >
+      <div
+        id="movement-joystick-knob"
+        class="movement-joystick__knob"
+      ></div>
+    </div>
 
+    <div class="mobile-quick-actions">
+      <button
+        id="mobile-view-button"
+        class="mobile-control-button mobile-control-button--small"
+        type="button"
+        aria-label="Cambiar cámara"
+      >
+        <strong>V</strong>
+        <span>Vista</span>
+      </button>
 
-</a-scene>
+      <button
+        id="mobile-wave-button"
+        class="mobile-control-button mobile-control-button--small"
+        type="button"
+        aria-label="Saludar"
+      >
+        <strong>👋</strong>
+        <span>Saludar</span>
+      </button>
+    </div>
+
+    <div class="mobile-action-buttons">
+      <button
+        id="mobile-sprint-button"
+        class="mobile-control-button"
+        type="button"
+        aria-label="Mantener para correr"
+      >
+        <strong>⚡</strong>
+        <span>Correr</span>
+      </button>
+
+      <button
+        id="mobile-jump-button"
+        class="mobile-control-button mobile-control-button--primary"
+        type="button"
+        aria-label="Saltar"
+      >
+        <strong>↑</strong>
+        <span>Saltar</span>
+      </button>
+
+      <button
+        id="mobile-interact-button"
+        class="mobile-control-button"
+        type="button"
+        aria-label="Interactuar"
+      >
+        <strong>◎</strong>
+        <span>Usar</span>
+      </button>
+    </div>
+  </div>
+
+  <a-scene
+    adaptive-performance
+    background="color: #45474d"
+    renderer="
+      antialias: true;
+      colorManagement: true;
+      physicallyCorrectLights: true
+    "
+    loading-screen="dotsColor: #d8ad55; backgroundColor: #101014"
+  >
+    <a-assets timeout="10000">
+      <img
+        id="udla-emblem"
+        src="/assets/images/udla-gallery-emblem.webp"
+        alt=""
+      >
+      <!-- Los videos y modelos GLB se declararán aquí cuando estén disponibles. -->
+    </a-assets>
+
+    <a-entity
+      id="gallery-environment"
+      gallery-builder="
+        projectName: Galería de Arte Virtual;
+        spawnPosition: 0 0.12 16
+      "
+    ></a-entity>
+
+    <a-entity
+      id="player-rig"
+      position="0 0.12 16"
+      player-controller
+      mobile-controls
+      view-switcher="defaultView: third"
+    >
+      <a-entity
+        id="local-avatar"
+        class="avatar-root"
+        rotation="0 180 0"
+        scale="1.03 1.03 1.03"
+        visible="true"
+        avatar-appearance="
+          avatarType: male;
+          clothingColor: #c8102e;
+          nickname: Visitante
+        "
+        avatar-animator
+      >
+        <!--
+          Este contenedor puede reemplazarse por un gltf-model sin modificar
+          player-controller, las cámaras ni la jerarquía pública del avatar.
+        -->
+        <a-entity class="avatar-model-root avatar-body">
+          <a-cylinder
+            class="avatar-torso"
+            position="0 1.25 0"
+            radius="0.28"
+            height="0.82"
+            color="#9b1c31"
+            data-clothing-part
+            shadow="cast: true"
+          ></a-cylinder>
+
+          <a-sphere
+            class="avatar-head"
+            position="0 1.92 0"
+            radius="0.3"
+            color="#d7a77c"
+            shadow="cast: true"
+          ></a-sphere>
+
+          <a-cylinder
+            position="0 1.67 0"
+            radius="0.11"
+            height="0.18"
+            color="#d7a77c"
+          ></a-cylinder>
+
+          <a-sphere
+            position="-0.29 1.92 0"
+            radius="0.065"
+            color="#d7a77c"
+          ></a-sphere>
+
+          <a-sphere
+            position="0.29 1.92 0"
+            radius="0.065"
+            color="#d7a77c"
+          ></a-sphere>
+
+          <a-sphere
+            data-avatar-variant="male"
+            position="0 2.08 -0.015"
+            radius="0.305"
+            scale="1 0.55 1"
+            color="#30231f"
+            shadow="cast: true"
+          ></a-sphere>
+
+          <a-sphere
+            data-avatar-variant="female"
+            position="0 1.98 -0.15"
+            radius="0.3"
+            scale="1 1.08 0.62"
+            color="#30231f"
+            visible="false"
+            shadow="cast: true"
+          ></a-sphere>
+
+          <a-sphere
+            data-avatar-variant="female"
+            position="0 1.7 -0.31"
+            radius="0.145"
+            scale="0.72 1.35 0.72"
+            color="#30231f"
+            visible="false"
+            shadow="cast: true"
+          ></a-sphere>
+
+          <a-cone
+            data-avatar-variant="female"
+            data-clothing-part
+            position="0 0.98 0"
+            radius-bottom="0.34"
+            radius-top="0.24"
+            height="0.38"
+            color="#9b1c31"
+            visible="false"
+            shadow="cast: true"
+          ></a-cone>
+
+          <a-sphere
+            position="-0.105 1.99 0.27"
+            radius="0.035"
+            color="#202024"
+          ></a-sphere>
+
+          <a-sphere
+            position="0.105 1.99 0.27"
+            radius="0.035"
+            color="#202024"
+          ></a-sphere>
+
+          <a-box
+            position="0 1.83 0.292"
+            width="0.12"
+            height="0.018"
+            depth="0.018"
+            color="#8f4250"
+          ></a-box>
+
+          <a-circle
+            position="0 1.35 0.286"
+            radius="0.065"
+            color="#f7f4ee"
+            material="shader: flat"
+          ></a-circle>
+
+          <a-entity
+            class="avatar-left-arm"
+            data-avatar-part="left-arm"
+            position="-0.39 1.55 0"
+            rotation="0 0 -5"
+          >
+            <a-cylinder
+              position="0 -0.34 0"
+              radius="0.09"
+              height="0.68"
+              color="#9b1c31"
+              data-clothing-part
+              shadow="cast: true"
+            ></a-cylinder>
+
+            <a-sphere
+              position="0 -0.7 0"
+              radius="0.105"
+              color="#d7a77c"
+              shadow="cast: true"
+            ></a-sphere>
+          </a-entity>
+
+          <a-entity
+            class="avatar-right-arm"
+            data-avatar-part="right-arm"
+            position="0.39 1.55 0"
+            rotation="0 0 5"
+          >
+            <a-cylinder
+              position="0 -0.34 0"
+              radius="0.09"
+              height="0.68"
+              color="#9b1c31"
+              data-clothing-part
+              shadow="cast: true"
+            ></a-cylinder>
+
+            <a-sphere
+              position="0 -0.7 0"
+              radius="0.105"
+              color="#d7a77c"
+              shadow="cast: true"
+            ></a-sphere>
+          </a-entity>
+
+          <a-entity
+            class="avatar-left-leg"
+            data-avatar-part="left-leg"
+            position="-0.14 0.88 0"
+          >
+            <a-cylinder
+              position="0 -0.4 0"
+              radius="0.105"
+              height="0.8"
+              color="#282b37"
+              shadow="cast: true"
+            ></a-cylinder>
+
+            <a-box
+              position="0 -0.8 0.1"
+              width="0.23"
+              height="0.15"
+              depth="0.4"
+              color="#171923"
+              shadow="cast: true"
+            ></a-box>
+          </a-entity>
+
+          <a-entity
+            class="avatar-right-leg"
+            data-avatar-part="right-leg"
+            position="0.14 0.88 0"
+          >
+            <a-cylinder
+              position="0 -0.4 0"
+              radius="0.105"
+              height="0.8"
+              color="#282b37"
+              shadow="cast: true"
+            ></a-cylinder>
+
+            <a-box
+              position="0 -0.8 0.1"
+              width="0.23"
+              height="0.15"
+              depth="0.4"
+              color="#171923"
+              shadow="cast: true"
+            ></a-box>
+          </a-entity>
+        </a-entity>
+
+        <a-text
+          id="local-avatar-name"
+          class="avatar-name"
+          position="0 2.62 0"
+          rotation="0 180 0"
+          value="Visitante"
+          align="center"
+          width="3.5"
+          color="#ffffff"
+          side="double"
+        ></a-text>
+      </a-entity>
+
+      <a-camera
+        id="first-person-camera"
+        position="0 1.72 0"
+        camera="active: false; fov: 75; near: 0.1; far: 100"
+        look-controls="pointerLockEnabled: true"
+        wasd-controls="enabled: false"
+      >
+        <a-cursor
+          raycaster="objects: .interactive-artwork; far: 8"
+          fuse="false"
+          material="color: #ffffff; shader: flat; opacity: 0"
+        ></a-cursor>
+      </a-camera>
+
+      <a-camera
+        id="third-person-camera"
+        camera="active: true; fov: 70; near: 0.1; far: 100"
+        look-controls="enabled: false"
+        wasd-controls="enabled: false"
+        third-person-camera="
+          target: #local-avatar;
+          distance: 5.2;
+          height: 3.25;
+          smoothness: 7.5;
+          lookAtHeight: 1.45
+        "
+      >
+        <a-cursor
+          raycaster="objects: .interactive-artwork; far: 10"
+          fuse="false"
+          material="color: #ffffff; shader: flat; opacity: 0"
+        ></a-cursor>
+      </a-camera>
+    </a-entity>
+
+    <a-entity
+      id="remote-players"
+      multiplayer-manager="
+        localRig: #player-rig;
+        localAvatar: #local-avatar;
+        sendRate: 12;
+        interpolation: 10
+      "
+    ></a-entity>
+  </a-scene>
 
   <script src="/js/app.js"></script>
 </body>

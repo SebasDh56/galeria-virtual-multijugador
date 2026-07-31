@@ -4,8 +4,8 @@
   --surface-border: rgba(255, 255, 255, 0.12);
   --text: #f5f5f5;
   --text-muted: #b8b8c2;
-  --primary: #d8ad55;
-  --primary-hover: #e9c574;
+  --primary: #c8102e;
+  --primary-hover: #e32143;
   --danger: #ff7373;
   --radius: 20px;
 }
@@ -47,7 +47,7 @@ input {
 }
 
 .login-card {
-  width: min(100%, 430px);
+  width: min(100%, 520px);
   padding: 40px;
   border: 1px solid var(--surface-border);
   border-radius: var(--radius);
@@ -63,7 +63,7 @@ input {
   height: 56px;
   margin-bottom: 24px;
   border-radius: 16px;
-  color: #161616;
+  color: #ffffff;
   background: var(--primary);
   font-size: 28px;
   font-weight: 700;
@@ -114,11 +114,92 @@ input {
 
 input:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 4px rgba(216, 173, 85, 0.14);
+  box-shadow: 0 0 0 4px rgba(200, 16, 46, 0.18);
 }
 
 small {
   color: var(--text-muted);
+}
+
+.avatar-customizer {
+  display: grid;
+  gap: 14px;
+  margin: 22px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.avatar-customizer legend {
+  margin-bottom: 10px;
+  padding: 0;
+  font-weight: 650;
+}
+
+.avatar-type-options {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.avatar-type-option {
+  position: relative;
+  cursor: pointer;
+}
+
+.avatar-type-option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.avatar-type-option span {
+  display: grid;
+  gap: 3px;
+  padding: 13px 14px;
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.045);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.avatar-type-option input:checked + span {
+  border-color: var(--primary);
+  background: rgba(200, 16, 46, 0.13);
+  box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.1);
+}
+
+.avatar-type-option input:focus-visible + span {
+  outline: 2px solid var(--primary-hover);
+  outline-offset: 2px;
+}
+
+.avatar-color {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.avatar-color span {
+  display: grid;
+  gap: 3px;
+}
+
+.avatar-color input[type="color"] {
+  flex: 0 0 52px;
+  width: 52px;
+  height: 42px;
+  padding: 4px;
+  border-radius: 10px;
+  cursor: pointer;
 }
 
 .form-error {
@@ -133,7 +214,7 @@ button {
   padding: 14px 20px;
   border: 0;
   border-radius: 12px;
-  color: #171717;
+  color: #ffffff;
   background: var(--primary);
   font-weight: 750;
   cursor: pointer;
@@ -154,5 +235,9 @@ button:active {
 @media (max-width: 520px) {
   .login-card {
     padding: 28px 22px;
+  }
+
+  .avatar-type-options {
+    grid-template-columns: 1fr;
   }
 }

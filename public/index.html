@@ -59,6 +59,52 @@
           </small>
         </div>
 
+        <fieldset class="avatar-customizer">
+          <legend>Personaliza tu avatar</legend>
+
+          <div class="avatar-type-options">
+            <label class="avatar-type-option">
+              <input
+                type="radio"
+                name="avatarType"
+                value="male"
+                checked
+              >
+              <span>
+                <strong>Hombre</strong>
+                <small>Cabello corto</small>
+              </span>
+            </label>
+
+            <label class="avatar-type-option">
+              <input
+                type="radio"
+                name="avatarType"
+                value="female"
+              >
+              <span>
+                <strong>Mujer</strong>
+                <small>Cabello largo</small>
+              </span>
+            </label>
+          </div>
+
+          <label class="avatar-color" for="avatar-color">
+            <span>
+              <strong>Color de ropa</strong>
+              <small>Elige el color que verán los demás.</small>
+            </span>
+
+            <input
+              id="avatar-color"
+              name="avatarColor"
+              type="color"
+              value="#c8102e"
+              aria-label="Color de ropa del avatar"
+            >
+          </label>
+        </fieldset>
+
         <p
           id="form-error"
           class="form-error"

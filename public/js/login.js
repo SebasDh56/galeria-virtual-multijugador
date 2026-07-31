@@ -1,6 +1,8 @@
 const loginForm = document.querySelector("#login-form");
 const nicknameInput = document.querySelector("#nickname");
 const formError = document.querySelector("#form-error");
+const avatarColorInput =
+  document.querySelector("#avatar-color");
 
 const NICKNAME_PATTERN = /^[a-zA-ZÀ-ÿ0-9_-]+$/;
 
@@ -39,6 +41,14 @@ loginForm.addEventListener("submit", (event) => {
   formError.textContent = "";
 
   sessionStorage.setItem("galleryNickname", nickname);
+  sessionStorage.setItem(
+    "galleryAvatarType",
+    loginForm.elements.avatarType.value
+  );
+  sessionStorage.setItem(
+    "galleryAvatarColor",
+    avatarColorInput.value
+  );
 
   window.location.href = "/gallery.html";
 });
