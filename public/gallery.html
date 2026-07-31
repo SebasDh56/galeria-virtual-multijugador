@@ -20,6 +20,7 @@
   <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
 
+  <script src="/js/config/artwork-media.js"></script>
   <script src="/js/components/video-interaction.js"></script>
   <script src="/js/components/gallery-builder.js"></script>
   <script src="/js/components/player-controller.js"></script>
@@ -27,6 +28,7 @@
   <script src="/js/components/avatar-animator.js"></script>
   <script src="/js/components/third-person-camera.js"></script>
   <script src="/js/components/view-switcher.js"></script>
+  <script src="/js/components/artwork-interactor.js"></script>
   <script src="/js/components/mobile-controls.js"></script>
   <script src="/js/components/adaptive-performance.js"></script>
   <script src="/js/components/multiplayer-manager.js"></script>
@@ -53,7 +55,7 @@
       <p><kbd>Espacio</kbd> Saltar</p>
       <p><kbd>H</kbd> Saludar</p>
       <p><kbd>V</kbd> Cambiar vista</p>
-      <p><kbd>Clic</kbd> Interactuar</p>
+      <p><kbd>Clic / E</kbd> Interactuar</p>
 
       <div class="view-status">
         <span>Vista actual</span>
@@ -183,6 +185,10 @@
       position="0 0.12 16"
       player-controller
       mobile-controls
+      artwork-interactor="
+        maxDistance: 11;
+        selectionAngle: 32
+      "
       view-switcher="defaultView: third"
     >
       <a-entity
@@ -438,7 +444,9 @@
           distance: 5.2;
           height: 3.25;
           smoothness: 7.5;
-          lookAtHeight: 1.45
+          lookAtHeight: 1.45;
+          constrainToGallery: true;
+          boundaryMargin: 0.14
         "
       >
         <a-cursor

@@ -26,7 +26,8 @@ La aplicación estará disponible en `http://localhost:3000`.
 - `Espacio`: saltar.
 - `H`: saludar.
 - `V`: cambiar entre primera y tercera persona.
-- Mouse y clic: cámara e interacción.
+- Mouse: cámara.
+- Clic o `E`: interactuar con la obra visible.
 
 ### Móvil
 
@@ -36,6 +37,21 @@ La aplicación estará disponible en `http://localhost:3000`.
 
 En pantallas móviles se limita automáticamente la densidad de píxeles
 y se reduce el número de luces puntuales activas.
+
+## Videos de las obras
+
+1. Copiar cada video a `public/assets/videos`.
+2. Abrir `public/js/config/artwork-media.js`.
+3. Asignar la ruta del video al identificador de la obra:
+
+```js
+"front-01": "/assets/videos/mi-obra.mp4"
+```
+
+La galería sirve automáticamente esa carpeta mediante Express. Los
+videos usan carga diferida: no se descargan hasta que el visitante
+interactúa con la obra. Para reducir el tiempo de carga, se recomienda
+usar archivos MP4 H.264 comprimidos y nombres sin espacios ni tildes.
 
 ## Despliegue gratuito en Render
 

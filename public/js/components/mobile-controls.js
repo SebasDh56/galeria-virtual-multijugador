@@ -357,21 +357,7 @@ AFRAME.registerComponent("mobile-controls", {
 
   interact(event) {
     event.preventDefault();
-
-    const firstCamera =
-      this.el.querySelector("#first-person-camera");
-    const activeCamera =
-      firstCamera?.components.camera?.data.active
-        ? firstCamera
-        : this.el.querySelector("#third-person-camera");
-    const cursor = activeCamera?.querySelector("a-cursor");
-    const intersectedElements =
-      cursor?.components.raycaster?.intersectedEls || [];
-    const artwork = intersectedElements.find((element) =>
-      element.classList.contains("interactive-artwork")
-    );
-
-    artwork?.emit("click");
+    this.el.emit("interact-artwork");
   },
 
   remove() {

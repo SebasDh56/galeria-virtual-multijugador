@@ -5,7 +5,9 @@ AFRAME.registerComponent("third-person-camera", {
     height: { type: "number", default: 2.7 },
     smoothness: { type: "number", default: 8 },
     lookAtHeight: { type: "number", default: 1.35 },
-    mobilePitchLimit: { type: "number", default: 1.1 }
+    mobilePitchLimit: { type: "number", default: 1.1 },
+    constrainToGallery: { type: "boolean", default: true },
+    boundaryMargin: { type: "number", default: 0.14 }
   },
 
   init() {
@@ -23,12 +25,30 @@ AFRAME.registerComponent("third-person-camera", {
     this.lookHelper = new THREE.PerspectiveCamera();
     this.hasInitialPosition = false;
     this.pitchOffset = 0;
+    this.walkableZones = [];
+
+    this.cacheWalkableZones =
+      this.cacheWalkableZones.bind(this);
+
+    this.el.sceneEl.addEventListener(
+      "gallery-built",
+      this.cacheWalkableZones
+    );
+
+    this.cacheWalkableZones();
   },
 
-  update() {
+  update(previousData) {
     this.target =
       this.data.target ||
       document.querySelector("#local-avatar");
+
+    if (
+      previousData.boundaryMargin !==
+      this.data.boundaryMargin
+    ) {
+      this.cacheWalkableZones();
+    }
   },
 
   addPitchInput(delta) {
@@ -37,6 +57,85 @@ AFRAME.registerComponent("third-person-camera", {
       -this.data.mobilePitchLimit,
       this.data.mobilePitchLimit
     );
+  },
+
+  cacheWalkableZones() {
+    const margin = Math.max(this.data.boundaryMargin, 0);
+
+    this.walkableZones = Array.from(
+      document.querySelectorAll(".gallery-walkable-zone")
+    )
+      .map((zone) => ({
+        minX: Number(zone.dataset.minX) + margin,
+        maxX: Number(zone.dataset.maxX) - margin,
+        minZ: Number(zone.dataset.minZ) + margin,
+        maxZ: Number(zone.dataset.maxZ) - margin
+      }))
+      .filter(
+        (zone) =>
+          Number.isFinite(zone.minX) &&
+          Number.isFinite(zone.maxX) &&
+          Number.isFinite(zone.minZ) &&
+          Number.isFinite(zone.maxZ) &&
+          zone.minX <= zone.maxX &&
+          zone.minZ <= zone.maxZ
+      );
+  },
+
+  constrainDesiredPosition() {
+    if (
+      !this.data.constrainToGallery ||
+      this.walkableZones.length === 0
+    ) {
+      return;
+    }
+
+    const position = this.desiredPosition;
+
+    for (let index = 0; index < this.walkableZones.length; index += 1) {
+      const zone = this.walkableZones[index];
+
+      if (
+        position.x >= zone.minX &&
+        position.x <= zone.maxX &&
+        position.z >= zone.minZ &&
+        position.z <= zone.maxZ
+      ) {
+        return;
+      }
+    }
+
+    let nearestX = position.x;
+    let nearestZ = position.z;
+    let nearestDistanceSquared = Infinity;
+
+    for (let index = 0; index < this.walkableZones.length; index += 1) {
+      const zone = this.walkableZones[index];
+      const candidateX = THREE.MathUtils.clamp(
+        position.x,
+        zone.minX,
+        zone.maxX
+      );
+      const candidateZ = THREE.MathUtils.clamp(
+        position.z,
+        zone.minZ,
+        zone.maxZ
+      );
+      const differenceX = position.x - candidateX;
+      const differenceZ = position.z - candidateZ;
+      const distanceSquared =
+        differenceX * differenceX +
+        differenceZ * differenceZ;
+
+      if (distanceSquared < nearestDistanceSquared) {
+        nearestDistanceSquared = distanceSquared;
+        nearestX = candidateX;
+        nearestZ = candidateZ;
+      }
+    }
+
+    position.x = nearestX;
+    position.z = nearestZ;
   },
 
   calculateDesiredTransform() {
@@ -59,6 +158,8 @@ AFRAME.registerComponent("third-person-camera", {
     this.desiredPosition
       .copy(this.targetWorldPosition)
       .add(this.offset);
+
+    this.constrainDesiredPosition();
 
     this.worldLookTarget.copy(this.targetWorldPosition);
     this.worldLookTarget.y +=
@@ -105,6 +206,13 @@ AFRAME.registerComponent("third-person-camera", {
     this.el.object3D.quaternion.slerp(
       this.desiredQuaternion,
       interpolation
+    );
+  },
+
+  remove() {
+    this.el.sceneEl.removeEventListener(
+      "gallery-built",
+      this.cacheWalkableZones
     );
   }
 });

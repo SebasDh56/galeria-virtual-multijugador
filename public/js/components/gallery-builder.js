@@ -3,6 +3,8 @@
   const FRAME_DEPTH = 0.12;
   const DEFAULT_WALL_COLOR = "#f0f0ef";
   const UDLA_RED = "#c8102e";
+  const ARTWORK_MEDIA =
+    window.GALLERY_ARTWORK_MEDIA || Object.freeze({});
 
   const FLOOR_SECTIONS = [
     { position: "0 0 16", width: 14, depth: 14, color: "#757575" },
@@ -175,7 +177,8 @@
       artworkId: { type: "string" },
       width: { type: "number", default: 2.2 },
       height: { type: "number", default: 1.85 },
-      color: { type: "color", default: "#b76b45" }
+      color: { type: "color", default: "#b76b45" },
+      videoSrc: { type: "string", default: "" }
     },
 
     init() {
@@ -214,7 +217,9 @@
         metalness: 0,
         side: "double"
       });
-      this.surface.setAttribute("video-interaction", "");
+      this.surface.setAttribute("video-interaction", {
+        videoSrc: this.data.videoSrc
+      });
 
       this.frame.appendChild(this.surface);
       this.el.appendChild(this.frame);
@@ -523,7 +528,8 @@
             artworkId: artwork.id,
             width: artwork.width || 2.2,
             height: artwork.height || 1.85,
-            color: artwork.color
+            color: artwork.color,
+            videoSrc: ARTWORK_MEDIA[artwork.id] || ""
           }
         });
       });
