@@ -7,9 +7,9 @@ AFRAME.registerComponent("multiplayer-manager", {
     positionThreshold: { type: "number", default: 0.025 },
     rotationThreshold: { type: "number", default: 1.5 },
     interpolation: { type: "number", default: 10 },
-    nearLodDistance: { type: "number", default: 11 },
-    farLodDistance: { type: "number", default: 20 },
-    cullDistance: { type: "number", default: 24 },
+    nearLodDistance: { type: "number", default: 14 },
+    farLodDistance: { type: "number", default: 28 },
+    cullDistance: { type: "number", default: 40 },
     lodInterval: { type: "number", default: 250 }
   },
 

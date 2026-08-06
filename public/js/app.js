@@ -28,12 +28,17 @@ function showInteractionStatus(event) {
     return;
   }
 
-  const { artworkId, hasVideo, isPlaying } = event.detail;
-  const action = hasVideo
+  const {
+    artworkId,
+    errorMessage,
+    hasVideo,
+    isPlaying
+  } = event.detail;
+  const action = errorMessage || (hasVideo
     ? isPlaying
       ? "Reproduciendo"
       : "Video pausado"
-    : "Obra seleccionada";
+    : "Obra seleccionada");
 
   interactionStatus.textContent = `${action}: ${artworkId}`;
   interactionStatus.classList.add(

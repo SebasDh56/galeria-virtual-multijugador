@@ -13,10 +13,10 @@ test("clasifica las tres áreas de la galería", () => {
   assert.equal(resolveGalleryZone({ z: -16 }), ZONES.MAIN_ROOM);
 });
 
-test("solo añade una zona vecina cerca de una transición", () => {
+test("mantiene visibles las salas adyacentes completas", () => {
   assert.deepEqual(
     [...resolveInterestZones({ z: 18 })],
-    [ZONES.LOBBY]
+    [ZONES.LOBBY, ZONES.CORRIDOR]
   );
   assert.deepEqual(
     [...resolveInterestZones({ z: 11 })],
@@ -24,11 +24,15 @@ test("solo añade una zona vecina cerca de una transición", () => {
   );
   assert.deepEqual(
     [...resolveInterestZones({ z: 0 })],
-    [ZONES.CORRIDOR]
+    [ZONES.CORRIDOR, ZONES.LOBBY, ZONES.MAIN_ROOM]
   );
   assert.deepEqual(
     [...resolveInterestZones({ z: -7 })],
-    [ZONES.CORRIDOR, ZONES.MAIN_ROOM]
+    [ZONES.CORRIDOR, ZONES.LOBBY, ZONES.MAIN_ROOM]
+  );
+  assert.deepEqual(
+    [...resolveInterestZones({ z: -18 })],
+    [ZONES.MAIN_ROOM, ZONES.CORRIDOR]
   );
 });
 

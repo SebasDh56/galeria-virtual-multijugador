@@ -121,9 +121,9 @@
         spawnPosition: 0 0.12 16
       "></a-entity>
 
-    <a-entity id="player-rig" position="0 0.12 16" player-controller mobile-controls artwork-interactor="
-        maxDistance: 11;
-        selectionAngle: 32
+      <a-entity id="player-rig" position="0 0.12 16" player-controller mobile-controls artwork-interactor="
+        maxDistance: 13;
+        selectionAngle: 36
       " view-switcher="defaultView: third">
       <a-entity id="local-avatar" class="avatar-root" rotation="0 180 0" scale="1.03 1.03 1.03" visible="true"
         avatar-appearance="
@@ -204,7 +204,7 @@
 
       <a-camera id="first-person-camera" position="0 1.72 0" camera="active: false; fov: 75; near: 0.1; far: 100"
         look-controls="pointerLockEnabled: true" wasd-controls="enabled: false">
-        <a-cursor raycaster="objects: .interactive-artwork; far: 8" fuse="false"
+        <a-cursor raycaster="objects: .interactive-artwork; far: 13" fuse="false"
           material="color: #ffffff; shader: flat; opacity: 0"></a-cursor>
       </a-camera>
 
@@ -218,7 +218,7 @@
           constrainToGallery: true;
           boundaryMargin: 0.14
         ">
-        <a-cursor raycaster="objects: .interactive-artwork; far: 10" fuse="false"
+        <a-cursor raycaster="objects: .interactive-artwork; far: 13" fuse="false"
           material="color: #ffffff; shader: flat; opacity: 0"></a-cursor>
       </a-camera>
     </a-entity>
@@ -229,9 +229,9 @@
         sendRate: 10;
         idleSendRate: 0.5;
         interpolation: 10;
-        nearLodDistance: 11;
-        farLodDistance: 20;
-        cullDistance: 24
+        nearLodDistance: 14;
+        farLodDistance: 28;
+        cullDistance: 40
       "></a-entity>
   </a-scene>
 

@@ -20,7 +20,8 @@ AFRAME.registerComponent("video-interaction", {
       artworkId: this.el.dataset.artworkId || "",
       videoId: "",
       isPlaying: false,
-      hasVideo: Boolean(this.data.video || this.data.videoSrc)
+      hasVideo: Boolean(this.data.video || this.data.videoSrc),
+      errorMessage: ""
     };
 
     this.el.addEventListener("click", this.handleClick);
@@ -183,8 +184,9 @@ AFRAME.registerComponent("video-interaction", {
     }, 450);
   },
 
-  emitInteraction(isPlaying) {
+  emitInteraction(isPlaying, errorMessage = "") {
     this.interactionDetail.isPlaying = isPlaying;
+    this.interactionDetail.errorMessage = errorMessage;
     this.updateInteractionDetail();
     this.el.emit(
       "artwork-interaction",
@@ -216,7 +218,17 @@ AFRAME.registerComponent("video-interaction", {
     if (playback && typeof playback.catch === "function") {
       playback
         .then(() => this.emitInteraction(true))
-        .catch(() => this.emitInteraction(false));
+        .catch(() => {
+          if (this.createdVideo) {
+            this.removeCreatedVideo();
+            this.restorePoster();
+          }
+
+          this.emitInteraction(
+            false,
+            "No se pudo reproducir este video"
+          );
+        });
       return;
     }
 

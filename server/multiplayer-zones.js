@@ -4,7 +4,6 @@ const ZONES = Object.freeze({
   MAIN_ROOM: "main-room"
 });
 
-const TRANSITION_DISTANCE = 4;
 const LOBBY_BOUNDARY_Z = 9;
 const MAIN_ROOM_BOUNDARY_Z = -9;
 
@@ -23,31 +22,19 @@ function resolveGalleryZone(position = {}) {
 }
 
 function resolveInterestZones(position = {}) {
-  const z = Number(position.z);
   const currentZone = resolveGalleryZone(position);
   const zones = new Set([currentZone]);
 
-  if (
-    currentZone === ZONES.LOBBY &&
-    z <= LOBBY_BOUNDARY_Z + TRANSITION_DISTANCE
-  ) {
+  if (currentZone === ZONES.LOBBY) {
     zones.add(ZONES.CORRIDOR);
   }
 
   if (currentZone === ZONES.CORRIDOR) {
-    if (z >= LOBBY_BOUNDARY_Z - TRANSITION_DISTANCE) {
-      zones.add(ZONES.LOBBY);
-    }
-
-    if (z <= MAIN_ROOM_BOUNDARY_Z + TRANSITION_DISTANCE) {
-      zones.add(ZONES.MAIN_ROOM);
-    }
+    zones.add(ZONES.LOBBY);
+    zones.add(ZONES.MAIN_ROOM);
   }
 
-  if (
-    currentZone === ZONES.MAIN_ROOM &&
-    z >= MAIN_ROOM_BOUNDARY_Z - TRANSITION_DISTANCE
-  ) {
+  if (currentZone === ZONES.MAIN_ROOM) {
     zones.add(ZONES.CORRIDOR);
   }
 

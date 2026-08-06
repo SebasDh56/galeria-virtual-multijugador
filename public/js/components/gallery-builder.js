@@ -237,7 +237,7 @@
     renderArtwork() {
       const hasVideo = Boolean(this.data.videoSrc);
       const hasPoster = Boolean(this.data.thumbnailSrc);
-      this.surface.classList.toggle("interactive-artwork", hasVideo);
+      this.surface.classList.add("interactive-artwork");
       this.surface.setAttribute("material", hasPoster ? {
         src: this.data.thumbnailSrc, color: "#ffffff", shader: "flat", side: "double"
       } : { color: this.data.color, roughness: 0.82, metalness: 0, side: "double" });

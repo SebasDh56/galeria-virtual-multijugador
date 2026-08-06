@@ -114,11 +114,11 @@ y se reduce el número de luces puntuales activas.
   de posición o rotación.
 - Un jugador detenido envía solamente un latido cada dos segundos.
 - Lobby, pasillo y sala principal usan zonas de interés de Socket.IO.
-- Cerca de una puerta se incluye temporalmente la zona vecina para
-  conservar transiciones naturales.
+- Cada sala mantiene visible su zona vecina completa para conservar
+  vistas naturales entre puertas y pasillos.
 - Los avatares cercanos mantienen animaciones, nombres y sombras.
 - Los avatares lejanos desactivan progresivamente nombres, sombras y
-  animación; fuera de 24 metros se ocultan.
+  animación; solo fuera de 40 metros se ocultan.
 - El contador de usuarios continúa siendo global.
 
 Las verificaciones unitarias y multijugador se ejecutan con:

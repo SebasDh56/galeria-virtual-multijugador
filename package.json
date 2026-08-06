@@ -7,7 +7,7 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "check": "node --check server.js && npm test",
-    "test": "node --test tests/multiplayer-zones.test.js tests/multiplayer-client.test.js tests/multiplayer-server.test.js"
+    "test": "node --test tests/multiplayer-zones.test.js tests/multiplayer-client.test.js tests/multiplayer-server.test.js tests/gallery-interaction.test.js"
   },
   "engines": {
     "node": ">=20 <23"
