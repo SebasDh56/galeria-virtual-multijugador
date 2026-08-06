@@ -37,6 +37,10 @@ AFRAME.registerComponent("artwork-interactor", {
       this.cacheArtworks
     );
     this.el.sceneEl.addEventListener(
+      "artworks-updated",
+      this.cacheArtworks
+    );
+    this.el.sceneEl.addEventListener(
       "artwork-interaction",
       this.recordArtworkInteraction
     );
@@ -198,6 +202,10 @@ AFRAME.registerComponent("artwork-interactor", {
   remove() {
     this.el.sceneEl.removeEventListener(
       "gallery-built",
+      this.cacheArtworks
+    );
+    this.el.sceneEl.removeEventListener(
+      "artworks-updated",
       this.cacheArtworks
     );
     this.el.sceneEl.removeEventListener(

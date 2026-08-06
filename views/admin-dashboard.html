@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Administración | Galería Virtual</title>
+  <link rel="stylesheet" href="/css/admin.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script type="module" src="/js/admin/admin-dashboard.js"></script>
+</head>
+<body class="auth-pending">
+  <div class="admin-session-check" role="status">Verificando sesión administrativa...</div>
+  <header class="admin-header">
+    <div><p class="admin-eyebrow">Galería Virtual UDLA</p><h1>Panel administrativo</h1></div>
+    <div class="admin-account"><span id="admin-email-label"></span><button id="admin-logout" class="admin-button-secondary" type="button">Cerrar sesión</button></div>
+  </header>
+  <main class="admin-dashboard">
+    <p id="admin-status" class="admin-form-status" role="alert" aria-live="polite"></p>
+    <section class="admin-card admin-artwork-layout">
+      <div><p class="admin-eyebrow">Obras audiovisuales</p><h2 id="form-title">Añadir obra</h2><p class="admin-description">Máximo 10 obras activas, una por ubicación. Solo MP4 de hasta 45 MB.</p></div>
+      <form id="artwork-form" class="admin-artwork-form">
+        <div class="admin-form-group"><label for="artwork-title">Nombre</label><input id="artwork-title" name="title" maxlength="120" required></div>
+        <div class="admin-form-group"><label for="artwork-author">Autor</label><input id="artwork-author" name="author" maxlength="100" required></div>
+        <div class="admin-form-group"><label for="artwork-description">Descripción</label><textarea id="artwork-description" name="description" maxlength="500"></textarea></div>
+        <div class="admin-form-group"><label for="artwork-slot">Ubicación</label><select id="artwork-slot" name="slotId" required></select></div>
+        <div class="admin-form-group"><label for="artwork-video">Video MP4</label><input id="artwork-video" name="video" type="file" accept="video/mp4"><small id="video-help">Obligatorio al crear. La miniatura se genera en este navegador.</small></div>
+        <img id="thumbnail-preview" class="thumbnail-preview" alt="Vista previa de la miniatura" hidden>
+        <label class="admin-toggle"><input id="artwork-active" name="isActive" type="checkbox" checked><span>Publicar en la galería</span></label>
+        <progress id="upload-progress" max="1" value="0" hidden></progress><span id="upload-progress-label" class="admin-muted"></span>
+        <div class="admin-form-actions"><button id="artwork-submit" type="submit">Guardar obra</button><button id="artwork-cancel" class="admin-button-secondary" type="button" hidden>Cancelar edición</button></div>
+      </form>
+    </section>
+    <section class="admin-card admin-list-card" aria-labelledby="artwork-list-title">
+      <div class="admin-list-heading"><div><p class="admin-eyebrow">Contenido cargado</p><h2 id="artwork-list-title">Obras registradas</h2></div><span id="artwork-count" class="admin-count">0 / 10 activas</span></div>
+      <div id="artwork-list" class="admin-artwork-list" aria-live="polite"></div>
+    </section>
+    <a class="admin-gallery-link" href="/">Abrir acceso de visitantes</a>
+  </main>
+</body>
+</html>

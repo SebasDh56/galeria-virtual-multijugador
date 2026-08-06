@@ -17,6 +17,76 @@ npm run dev
 
 La aplicación estará disponible en `http://localhost:3000`.
 
+## Administración con Supabase
+
+La administración incluye:
+
+- inicio de sesión separado en `/admin/login`;
+- panel protegido en `/admin`;
+- cierre de sesión;
+- un solo administrador autorizado;
+- tabla `artworks` con RLS;
+- buckets públicos para lectura y restringidos para escritura;
+- diez espacios predefinidos, sin modificar la galería actual;
+- formulario CRUD para crear, editar, activar y eliminar obras;
+- subida de videos MP4 de hasta 45 MB;
+- generación local de miniaturas WebP;
+- carga dinámica y diferida de las obras activas.
+
+### 1. Crear y configurar el proyecto
+
+1. Crear un proyecto en Supabase.
+2. Abrir **SQL Editor** en el panel de Supabase.
+3. Ejecutar todo el contenido de
+   `supabase/migrations/202608030001_create_artworks_admin_security.sql`.
+4. Copiar `.env.example` como `.env`.
+5. Completar la URL y la publishable key del proyecto:
+
+```env
+SUPABASE_URL=https://tu-proyecto.supabase.co
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_reemplazar
+```
+
+Los proyectos que todavía utilizan claves legacy pueden configurar
+`SUPABASE_ANON_KEY` en lugar de `SUPABASE_PUBLISHABLE_KEY`. Nunca se
+debe colocar una `service_role` o secret key en `public/` ni en el
+repositorio.
+
+### 2. Crear el administrador único
+
+1. En Supabase, abrir **Authentication > Users**.
+2. Crear manualmente el usuario con correo y contraseña.
+3. Confirmar el correo desde el panel si fuera necesario.
+4. En **SQL Editor**, autorizar ese usuario sustituyendo el correo:
+
+```sql
+insert into private.admin_users (user_id)
+select id
+from auth.users
+where email = 'administrador@ejemplo.com';
+```
+
+La restricción `singleton` impide registrar un segundo administrador.
+Para cambiar de administrador, primero se debe eliminar la fila actual
+de `private.admin_users` y después insertar el nuevo usuario.
+
+### 3. Probar el acceso
+
+```bash
+npm run dev
+```
+
+1. Abrir `http://localhost:3000/admin/login`.
+2. Ingresar con el correo y la contraseña creados en Supabase.
+3. Comprobar que `/admin` muestra el correo del administrador.
+4. Pulsar **Cerrar sesión** y verificar la redirección.
+5. Abrir directamente `/admin` sin sesión y verificar que redirige a
+   `/admin/login`.
+
+En Render se deben configurar `SUPABASE_URL` y
+`SUPABASE_PUBLISHABLE_KEY` como variables del servicio. El archivo
+`render.yaml` ya solicita ambas sin incluir valores reales.
+
 ## Controles
 
 ### PC
@@ -38,7 +108,32 @@ La aplicación estará disponible en `http://localhost:3000`.
 En pantallas móviles se limita automáticamente la densidad de píxeles
 y se reduce el número de luces puntuales activas.
 
+## Optimización multijugador
+
+- El movimiento se envía a 10 Hz únicamente cuando supera los umbrales
+  de posición o rotación.
+- Un jugador detenido envía solamente un latido cada dos segundos.
+- Lobby, pasillo y sala principal usan zonas de interés de Socket.IO.
+- Cerca de una puerta se incluye temporalmente la zona vecina para
+  conservar transiciones naturales.
+- Los avatares cercanos mantienen animaciones, nombres y sombras.
+- Los avatares lejanos desactivan progresivamente nombres, sombras y
+  animación; fuera de 24 metros se ocultan.
+- El contador de usuarios continúa siendo global.
+
+Las verificaciones unitarias y multijugador se ejecutan con:
+
+```bash
+npm run check
+```
+
 ## Videos de las obras
+
+La forma principal de publicar una obra es ingresar en `/admin`, elegir
+una de las diez ubicaciones y subir el MP4. Supabase Storage conserva el
+video y la miniatura generada por el navegador.
+
+Como alternativa local sin Supabase:
 
 1. Copiar cada video a `public/assets/videos`.
 2. Abrir `public/js/config/artwork-media.js`.
@@ -76,7 +171,15 @@ está activo, porque actualmente no se necesita una base de datos.
 
 - `public/js/components`: componentes A-Frame con responsabilidades
   separadas.
+- `public/js/admin`: controladores de las pantallas administrativas.
+- `public/js/services`: cliente y autenticación de Supabase.
+- `public/js/config/gallery-slots.js`: diez ubicaciones usadas por las
+  obras dinámicas.
 - `public/assets`: recursos visuales optimizados.
+- `supabase/migrations`: esquema, RLS y políticas de Storage.
+- `views`: HTML administrativo que no se expone mediante archivos
+  estáticos.
+- `server`: entorno, rutas administrativas y zonas multijugador.
 - `server.js`: servidor Express y sincronización Socket.IO.
 - `render.yaml`: infraestructura gratuita de Render.
 

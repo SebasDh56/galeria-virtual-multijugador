@@ -4,6 +4,7 @@ AFRAME.registerComponent("video-interaction", {
   schema: {
     video: { type: "selector" },
     videoSrc: { type: "string", default: "" },
+    posterSrc: { type: "string", default: "" },
     pauseOthers: { type: "boolean", default: true },
     restartOnEnded: { type: "boolean", default: true }
   },
@@ -45,6 +46,9 @@ AFRAME.registerComponent("video-interaction", {
     }
 
     this.updateInteractionDetail();
+    if (!this.createdVideo) {
+      this.restorePoster();
+    }
   },
 
   setVideo(video) {
@@ -112,6 +116,25 @@ AFRAME.registerComponent("video-interaction", {
     this.el.setAttribute("material", "shader", "flat");
 
     return video;
+  },
+
+  restorePoster() {
+    if (this.data.posterSrc) {
+      this.el.setAttribute("material", {
+        src: this.data.posterSrc,
+        color: "#ffffff",
+        shader: "flat",
+        side: "double"
+      });
+      return;
+    }
+
+    this.el.setAttribute("material", {
+      color: this.el.dataset.defaultArtworkColor || "#b76b45",
+      roughness: 0.82,
+      metalness: 0,
+      side: "double"
+    });
   },
 
   ensureVideo() {
@@ -201,7 +224,10 @@ AFRAME.registerComponent("video-interaction", {
   },
 
   handleVideoEnded() {
-    if (this.data.restartOnEnded) {
+    if (this.createdVideo && this.data.posterSrc) {
+      this.removeCreatedVideo();
+      this.restorePoster();
+    } else if (this.data.restartOnEnded) {
       this.video.currentTime = 0;
     }
 

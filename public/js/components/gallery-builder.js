@@ -178,7 +178,10 @@
       width: { type: "number", default: 2.2 },
       height: { type: "number", default: 1.85 },
       color: { type: "color", default: "#b76b45" },
-      videoSrc: { type: "string", default: "" }
+      videoSrc: { type: "string", default: "" },
+      thumbnailSrc: { type: "string", default: "" },
+      title: { type: "string", default: "" },
+      author: { type: "string", default: "" }
     },
 
     init() {
@@ -200,8 +203,9 @@
         receive: true
       });
 
-      this.surface.classList.add("interactive-artwork");
       this.surface.dataset.artworkId = this.data.artworkId;
+      this.surface.dataset.artworkSlotId = this.data.artworkId;
+      this.surface.dataset.defaultArtworkColor = this.data.color;
       this.surface.setAttribute(
         "position",
         `0 0 ${FRAME_DEPTH / 2 + 0.006}`
@@ -211,18 +215,39 @@
         width: this.data.width - 0.18,
         height: this.data.height - 0.18
       });
-      this.surface.setAttribute("material", {
-        color: this.data.color,
-        roughness: 0.82,
-        metalness: 0,
-        side: "double"
-      });
-      this.surface.setAttribute("video-interaction", {
-        videoSrc: this.data.videoSrc
-      });
+      this.titleText = document.createElement("a-entity");
+      this.authorText = document.createElement("a-entity");
+      this.playIcon = document.createElement("a-entity");
+      this.titleText.setAttribute("position", `0 ${-this.data.height / 2 - 0.24} 0.08`);
+      this.authorText.setAttribute("position", `0 ${-this.data.height / 2 - 0.43} 0.08`);
+      this.playIcon.setAttribute("geometry", { primitive: "triangle", vertexA: "-0.18 -0.22 0", vertexB: "-0.18 0.22 0", vertexC: "0.23 0 0" });
+      this.playIcon.setAttribute("position", "0 0 0.08");
+      this.playIcon.setAttribute("material", { color: "#ffffff", shader: "flat", side: "double", opacity: 0.9, transparent: true });
 
       this.frame.appendChild(this.surface);
+      this.frame.append(this.titleText, this.authorText, this.playIcon);
       this.el.appendChild(this.frame);
+      this.renderArtwork();
+    },
+
+    update() {
+      if (this.surface) this.renderArtwork();
+    },
+
+    renderArtwork() {
+      const hasVideo = Boolean(this.data.videoSrc);
+      const hasPoster = Boolean(this.data.thumbnailSrc);
+      this.surface.classList.toggle("interactive-artwork", hasVideo);
+      this.surface.setAttribute("material", hasPoster ? {
+        src: this.data.thumbnailSrc, color: "#ffffff", shader: "flat", side: "double"
+      } : { color: this.data.color, roughness: 0.82, metalness: 0, side: "double" });
+      this.surface.setAttribute("video-interaction", { videoSrc: this.data.videoSrc, posterSrc: this.data.thumbnailSrc });
+      const labelWidth = Math.max(this.data.width * 1.35, 3.4);
+      this.titleText.setAttribute("text", { value: this.data.title, align: "center", width: labelWidth, color: "#222222", side: "double" });
+      this.authorText.setAttribute("text", { value: this.data.author, align: "center", width: labelWidth, color: "#666666", side: "double" });
+      this.titleText.setAttribute("visible", Boolean(this.data.title));
+      this.authorText.setAttribute("visible", Boolean(this.data.author));
+      this.playIcon.setAttribute("visible", hasVideo);
     },
 
     remove() {

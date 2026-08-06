@@ -27,6 +27,7 @@
   <script src="/js/components/mobile-controls.js"></script>
   <script src="/js/components/adaptive-performance.js"></script>
   <script src="/js/components/multiplayer-manager.js"></script>
+  <script type="module" src="/js/components/dynamic-artworks.js"></script>
 </head>
 
 <body>
@@ -225,8 +226,12 @@
     <a-entity id="remote-players" multiplayer-manager="
         localRig: #player-rig;
         localAvatar: #local-avatar;
-        sendRate: 12;
-        interpolation: 10
+        sendRate: 10;
+        idleSendRate: 0.5;
+        interpolation: 10;
+        nearLodDistance: 11;
+        farLodDistance: 20;
+        cullDistance: 24
       "></a-entity>
   </a-scene>
 

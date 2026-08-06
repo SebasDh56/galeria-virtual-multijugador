@@ -3,6 +3,18 @@ const http = require("node:http");
 
 const express = require("express");
 const { Server } = require("socket.io");
+const { createAdminRouter } = require("./server/admin-routes");
+const {
+  loadLocalEnvironment
+} = require("./server/environment");
+const {
+  getInterestRoom,
+  haveSameZones,
+  resolveGalleryZone,
+  resolveInterestZones
+} = require("./server/multiplayer-zones");
+
+loadLocalEnvironment(__dirname);
 
 const app = express();
 const server = http.createServer(app);
@@ -16,6 +28,8 @@ const io = new Server(server, {
 });
 
 const PORT = process.env.PORT || 3000;
+const publicDirectory = path.join(__dirname, "public");
+const viewsDirectory = path.join(__dirname, "views");
 const DEFAULT_SPAWN = Object.freeze({ x: 0, y: 0.12, z: 16 });
 const SPAWN_POSITIONS = [
   { x: 0, y: 0.12, z: 16 },
@@ -29,6 +43,7 @@ const AVATAR_TYPES = new Set(["male", "female"]);
 const CLOTHING_COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 const players = new Map();
 const playerSessions = new Map();
+const MINIMUM_MOVE_INTERVAL_MS = 50;
 
 function clampNumber(value, minimum, maximum, fallback) {
   const numericValue = Number(value);
@@ -107,7 +122,77 @@ function emitPlayersCount() {
   io.emit("players:count", players.size);
 }
 
-app.use(express.static(path.join(__dirname, "public")));
+function serializePlayer(player) {
+  return {
+    id: player.id,
+    clientId: player.clientId,
+    nickname: player.nickname,
+    avatarType: player.avatarType,
+    clothingColor: player.clothingColor,
+    position: player.position,
+    rotationY: player.rotationY,
+    speed: player.speed,
+    isSprinting: player.isSprinting,
+    isJumping: player.isJumping,
+    zone: player.zone
+  };
+}
+
+function updateInterestRooms(socket, position) {
+  const previousZones = socket.data.interestZones || new Set();
+  const nextZones = resolveInterestZones(position);
+
+  if (haveSameZones(previousZones, nextZones)) {
+    return false;
+  }
+
+  previousZones.forEach((zone) => {
+    if (!nextZones.has(zone)) {
+      socket.leave(getInterestRoom(zone));
+    }
+  });
+
+  nextZones.forEach((zone) => {
+    if (!previousZones.has(zone)) {
+      socket.join(getInterestRoom(zone));
+    }
+  });
+
+  socket.data.interestZones = nextZones;
+  return true;
+}
+
+function emitVisibleSnapshot(socket, viewer) {
+  const visibleZones =
+    socket.data.interestZones || resolveInterestZones(viewer.position);
+  const visiblePlayers = [];
+
+  players.forEach((player) => {
+    if (
+      player.id !== viewer.id &&
+      visibleZones.has(player.zone)
+    ) {
+      visiblePlayers.push(serializePlayer(player));
+    }
+  });
+
+  socket.emit("players:snapshot", visiblePlayers);
+}
+
+function refreshVisibilitySnapshots() {
+  players.forEach((player, playerId) => {
+    const playerSocket = io.sockets.sockets.get(playerId);
+
+    if (playerSocket) {
+      emitVisibleSnapshot(playerSocket, player);
+    }
+  });
+}
+
+app.use(express.json({ limit: "16kb" }));
+app.use(createAdminRouter({ viewsDirectory }));
+
+app.use(express.static(publicDirectory));
 
 app.get("/api/health", (request, response) => {
   response.json({
@@ -130,10 +215,9 @@ io.on("connection", (socket) => {
 
     if (
       previousSocketId &&
-      previousSocketId !== socket.id &&
-      players.delete(previousSocketId)
+      previousSocketId !== socket.id
     ) {
-      socket.broadcast.emit("player:left", previousSocketId);
+      io.sockets.sockets.get(previousSocketId)?.disconnect(true);
     }
 
     const requestedPosition = sanitizePosition(payload.position);
@@ -155,22 +239,22 @@ io.on("connection", (socket) => {
       ),
       speed: 0,
       isSprinting: false,
-      isJumping: false
+      isJumping: false,
+      zone: resolveGalleryZone(requestedPosition),
+      lastMoveAt: 0
     };
 
     players.set(socket.id, player);
     playerSessions.set(clientId, socket.id);
+    updateInterestRooms(socket, player.position);
     socket.emit("player:spawn", {
       position: player.position,
       rotationY: player.rotationY
     });
-    socket.emit(
-      "players:snapshot",
-      Array.from(players.values()).filter(
-        (currentPlayer) => currentPlayer.id !== socket.id
-      )
-    );
-    socket.broadcast.emit("player:joined", player);
+    emitVisibleSnapshot(socket, player);
+    socket
+      .to(getInterestRoom(player.zone))
+      .emit("player:joined", serializePlayer(player));
     emitPlayersCount();
   });
 
@@ -180,6 +264,15 @@ io.on("connection", (socket) => {
     if (!player) {
       return;
     }
+
+    const now = Date.now();
+
+    if (now - player.lastMoveAt < MINIMUM_MOVE_INTERVAL_MS) {
+      return;
+    }
+
+    player.lastMoveAt = now;
+    const previousZone = player.zone;
 
     player.position = sanitizePosition(payload.position);
     player.rotationY = clampNumber(
@@ -194,8 +287,22 @@ io.on("connection", (socket) => {
     player.isJumping =
       Boolean(payload.isJumping) &&
       player.position.y > DEFAULT_SPAWN.y;
+    player.zone = resolveGalleryZone(player.position);
 
-    socket.broadcast.volatile.emit("player:moved", player);
+    const interestsChanged = updateInterestRooms(
+      socket,
+      player.position
+    );
+
+    socket
+      .to(getInterestRoom(player.zone))
+      .volatile.emit("player:moved", serializePlayer(player));
+
+    if (player.zone !== previousZone) {
+      refreshVisibilitySnapshots();
+    } else if (interestsChanged) {
+      emitVisibleSnapshot(socket, player);
+    }
   });
 
   socket.on("player:action", (payload = {}) => {
@@ -203,7 +310,7 @@ io.on("connection", (socket) => {
       return;
     }
 
-    socket.broadcast.emit("player:action", {
+    socket.to(getInterestRoom(player.zone)).emit("player:action", {
       id: socket.id,
       action: "wave"
     });

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+  <meta name="robots" content="noindex, nofollow">
+  <meta
+    name="description"
+    content="Acceso administrativo de la Galería Virtual"
+  >
+
+  <title>Administración | Ingreso</title>
+
+  <link rel="stylesheet" href="/css/admin.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script
+    type="module"
+    src="/js/admin/admin-login.js"
+  ></script>
+</head>
+
+<body>
+  <main class="admin-auth-page">
+    <section
+      class="admin-card admin-login-card"
+      aria-labelledby="admin-login-title"
+    >
+      <a class="admin-back-link" href="/">
+        ← Volver al acceso de visitantes
+      </a>
+
+      <p class="admin-eyebrow">Acceso restringido</p>
+      <h1 id="admin-login-title">Administración</h1>
+      <p class="admin-description">
+        Ingresa con el correo y la contraseña del administrador.
+      </p>
+
+      <form id="admin-login-form" novalidate>
+        <div class="admin-form-group">
+          <label for="admin-email">Correo electrónico</label>
+          <input
+            id="admin-email"
+            name="email"
+            type="email"
+            maxlength="254"
+            autocomplete="username"
+            required
+          >
+        </div>
+
+        <div class="admin-form-group">
+          <label for="admin-password">Contraseña</label>
+          <input
+            id="admin-password"
+            name="password"
+            type="password"
+            maxlength="256"
+            autocomplete="current-password"
+            required
+          >
+        </div>
+
+        <p
+          id="admin-login-status"
+          class="admin-form-status"
+          role="alert"
+          aria-live="polite"
+        ></p>
+
+        <button id="admin-login-submit" type="submit">
+          Ingresar al panel
+        </button>
+      </form>
+
+      <p class="admin-security-note">
+        No existe registro público. La cuenta se administra desde
+        Supabase.
+      </p>
+    </section>
+  </main>
+</body>
+</html>

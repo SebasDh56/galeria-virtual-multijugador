@@ -2,8 +2,15 @@ AFRAME.registerComponent("multiplayer-manager", {
   schema: {
     localRig: { type: "selector" },
     localAvatar: { type: "selector" },
-    sendRate: { type: "number", default: 12 },
-    interpolation: { type: "number", default: 10 }
+    sendRate: { type: "number", default: 10 },
+    idleSendRate: { type: "number", default: 0.5 },
+    positionThreshold: { type: "number", default: 0.025 },
+    rotationThreshold: { type: "number", default: 1.5 },
+    interpolation: { type: "number", default: 10 },
+    nearLodDistance: { type: "number", default: 11 },
+    farLodDistance: { type: "number", default: 20 },
+    cullDistance: { type: "number", default: 24 },
+    lodInterval: { type: "number", default: 250 }
   },
 
   init() {
@@ -11,6 +18,15 @@ AFRAME.registerComponent("multiplayer-manager", {
     this.profile = null;
     this.remotePlayers = new Map();
     this.lastSentAt = 0;
+    this.lastLodUpdateAt = 0;
+    this.hasSentMotion = false;
+    this.lastSentPosition = new THREE.Vector3();
+    this.lastSentRotation = 0;
+    this.lastSentMotion = {
+      isMoving: false,
+      isSprinting: false,
+      isJumping: false
+    };
     this.up = new THREE.Vector3(0, 1, 0);
     this.onlineCount =
       document.querySelector("#online-players-count");
@@ -119,13 +135,21 @@ AFRAME.registerComponent("multiplayer-manager", {
   },
 
   handleSnapshot(players) {
-    this.clearRemotePlayers();
+    const visiblePlayerIds = new Set();
 
     if (Array.isArray(players)) {
-      players.forEach((player) => this.upsertPlayer(player, true));
+      players.forEach((player) => {
+        visiblePlayerIds.add(player.id);
+        this.upsertPlayer(player, true);
+      });
     }
 
-    this.updateOnlineCount(this.remotePlayers.size + 1);
+    this.remotePlayers.forEach((player, playerId) => {
+      if (!visiblePlayerIds.has(playerId)) {
+        player.el.remove();
+        this.remotePlayers.delete(playerId);
+      }
+    });
   },
 
   handlePlayerSpawn(state) {
@@ -149,7 +173,6 @@ AFRAME.registerComponent("multiplayer-manager", {
 
   handlePlayerJoined(player) {
     this.upsertPlayer(player, true);
-    this.updateOnlineCount(this.remotePlayers.size + 1);
   },
 
   handlePlayerMoved(player) {
@@ -193,7 +216,6 @@ AFRAME.registerComponent("multiplayer-manager", {
 
     remotePlayer.el.remove();
     this.remotePlayers.delete(playerId);
-    this.updateOnlineCount(this.remotePlayers.size + 1);
   },
 
   handlePlayersCount(count) {
@@ -205,20 +227,72 @@ AFRAME.registerComponent("multiplayer-manager", {
       return;
     }
 
+    const detail = event.detail;
+    const position = this.data.localRig.object3D.position;
+    const rotationY =
+      this.data.localAvatar?.object3D.rotation.y || 0;
     const now = performance.now();
-    const minimumInterval = 1000 / this.data.sendRate;
+    const isMoving = detail.speed > 0.1;
+    const stateChanged =
+      !this.hasSentMotion ||
+      isMoving !== this.lastSentMotion.isMoving ||
+      Boolean(detail.isSprinting) !==
+        this.lastSentMotion.isSprinting ||
+      Boolean(detail.isJumping) !==
+        this.lastSentMotion.isJumping;
+    const positionChanged =
+      !this.hasSentMotion ||
+      position.distanceToSquared(this.lastSentPosition) >=
+        this.data.positionThreshold *
+          this.data.positionThreshold;
+    const rotationDelta = Math.abs(
+      Math.atan2(
+        Math.sin(rotationY - this.lastSentRotation),
+        Math.cos(rotationY - this.lastSentRotation)
+      )
+    );
+    const rotationChanged =
+      !this.hasSentMotion ||
+      rotationDelta >=
+        THREE.MathUtils.degToRad(this.data.rotationThreshold);
+    const fastUpdateDue =
+      now - this.lastSentAt >= 1000 / this.data.sendRate;
+    const idleUpdateDue =
+      now - this.lastSentAt >= 1000 / this.data.idleSendRate;
 
-    if (now - this.lastSentAt < minimumInterval) {
-      return;
+    if (!stateChanged) {
+      if (isMoving || positionChanged || rotationChanged) {
+        if (
+          !fastUpdateDue ||
+          (!positionChanged && !rotationChanged)
+        ) {
+          return;
+        }
+      } else if (!idleUpdateDue) {
+        return;
+      }
     }
 
     this.lastSentAt = now;
+    this.hasSentMotion = true;
+    this.lastSentPosition.copy(position);
+    this.lastSentRotation = rotationY;
+    this.lastSentMotion.isMoving = isMoving;
+    this.lastSentMotion.isSprinting = Boolean(
+      detail.isSprinting
+    );
+    this.lastSentMotion.isJumping = Boolean(detail.isJumping);
 
     this.socket.volatile.emit("player:move", {
-      ...this.getLocalState(),
-      speed: event.detail.speed,
-      isSprinting: event.detail.isSprinting,
-      isJumping: event.detail.isJumping
+      position: {
+        x: Number(position.x.toFixed(3)),
+        y: Number(position.y.toFixed(3)),
+        z: Number(position.z.toFixed(3))
+      },
+      rotationY: Number(rotationY.toFixed(4)),
+      speed: Number(detail.speed.toFixed(2)),
+      isSprinting: detail.isSprinting,
+      isJumping: detail.isJumping
     });
   },
 
@@ -279,8 +353,79 @@ AFRAME.registerComponent("multiplayer-manager", {
         isMoving: false,
         isSprinting: false,
         isJumping: false
-      }
+      },
+      lodLevel: "",
+      nameLabel: remoteAvatar.querySelector(".avatar-name"),
+      shadowParts: Array.from(
+        remoteAvatar.querySelectorAll("[shadow]")
+      ).map((element) => ({
+        element,
+        shadow: element.getAttribute("shadow")
+      }))
     };
+  },
+
+  setRemoteLod(player, lodLevel) {
+    if (player.lodLevel === lodLevel) {
+      return;
+    }
+
+    player.lodLevel = lodLevel;
+    const isHidden = lodLevel === "hidden";
+    const isNear = lodLevel === "near";
+    const shouldAnimate =
+      lodLevel === "near" || lodLevel === "medium";
+
+    player.el.object3D.visible = !isHidden;
+    player.nameLabel?.setAttribute("visible", isNear);
+    player.el.setAttribute(
+      "avatar-animator",
+      "enabled",
+      shouldAnimate
+    );
+
+    player.shadowParts.forEach(({ element, shadow }) => {
+      element.setAttribute("shadow", {
+        cast: isNear && Boolean(shadow?.cast),
+        receive: isNear && Boolean(shadow?.receive)
+      });
+    });
+  },
+
+  updateRemoteLod(time) {
+    if (
+      time - this.lastLodUpdateAt < this.data.lodInterval ||
+      !this.data.localRig
+    ) {
+      return;
+    }
+
+    this.lastLodUpdateAt = time;
+    const localPosition = this.data.localRig.object3D.position;
+    const nearDistanceSquared =
+      this.data.nearLodDistance * this.data.nearLodDistance;
+    const farDistanceSquared =
+      this.data.farLodDistance * this.data.farLodDistance;
+    const cullDistanceSquared =
+      this.data.cullDistance * this.data.cullDistance;
+
+    this.remotePlayers.forEach((player) => {
+      const distanceSquared =
+        localPosition.distanceToSquared(
+          player.el.object3D.position
+        );
+      let lodLevel = "near";
+
+      if (distanceSquared > cullDistanceSquared) {
+        lodLevel = "hidden";
+      } else if (distanceSquared > farDistanceSquared) {
+        lodLevel = "far";
+      } else if (distanceSquared > nearDistanceSquared) {
+        lodLevel = "medium";
+      }
+
+      this.setRemoteLod(player, lodLevel);
+    });
   },
 
   upsertPlayer(player, snapToPosition) {
@@ -358,6 +503,7 @@ AFRAME.registerComponent("multiplayer-manager", {
       1 - Math.exp(-this.data.interpolation * deltaSeconds);
 
     this.remotePlayers.forEach(this.interpolateRemotePlayer);
+    this.updateRemoteLod(time);
   },
 
   remove() {

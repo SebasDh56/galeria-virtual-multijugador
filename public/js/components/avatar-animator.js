@@ -1,5 +1,6 @@
 AFRAME.registerComponent("avatar-animator", {
   schema: {
+    enabled: { type: "boolean", default: true },
     walkFrequency: { type: "number", default: 8 },
     sprintFrequency: { type: "number", default: 12 },
     walkAmplitude: { type: "number", default: 25 },
@@ -306,7 +307,7 @@ AFRAME.registerComponent("avatar-animator", {
   },
 
   tick(time, deltaTime) {
-    if (!deltaTime) {
+    if (!this.data.enabled || !deltaTime) {
       return;
     }
 
