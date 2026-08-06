@@ -241,7 +241,12 @@
       this.surface.setAttribute("material", hasPoster ? {
         src: this.data.thumbnailSrc, color: "#ffffff", shader: "flat", side: "double"
       } : { color: this.data.color, roughness: 0.82, metalness: 0, side: "double" });
-      this.surface.setAttribute("video-interaction", { videoSrc: this.data.videoSrc, posterSrc: this.data.thumbnailSrc });
+      this.surface.setAttribute("video-interaction", {
+        videoSrc: this.data.videoSrc,
+        posterSrc: this.data.thumbnailSrc,
+        title: this.data.title,
+        author: this.data.author
+      });
       const labelWidth = Math.max(this.data.width * 1.35, 3.4);
       this.titleText.setAttribute("text", { value: this.data.title, align: "center", width: labelWidth, color: "#222222", side: "double" });
       this.authorText.setAttribute("text", { value: this.data.author, align: "center", width: labelWidth, color: "#666666", side: "double" });

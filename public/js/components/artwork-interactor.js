@@ -161,7 +161,7 @@ AFRAME.registerComponent("artwork-interactor", {
     return Boolean(
       element instanceof Element &&
       element.closest(
-        "button, input, .mobile-controls, .controls-help"
+        "button, input, .mobile-controls, .controls-help, .artwork-viewer"
       )
     );
   },
@@ -169,6 +169,7 @@ AFRAME.registerComponent("artwork-interactor", {
   handleWindowClick(event) {
     if (
       event.button !== 0 ||
+      document.body.classList.contains("artwork-viewer-open") ||
       document.body.classList.contains("touch-interface") ||
       this.isInterfaceTarget(event.target) ||
       performance.now() - this.lastArtworkInteractionTime < 100
@@ -183,6 +184,7 @@ AFRAME.registerComponent("artwork-interactor", {
     if (
       event.code !== "KeyE" ||
       event.repeat ||
+      document.body.classList.contains("artwork-viewer-open") ||
       this.isEditableTarget(event.target)
     ) {
       return;
@@ -192,6 +194,10 @@ AFRAME.registerComponent("artwork-interactor", {
   },
 
   handleInteractionRequest() {
+    if (document.body.classList.contains("artwork-viewer-open")) {
+      return;
+    }
+
     this.interact();
   },
 

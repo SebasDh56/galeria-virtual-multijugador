@@ -30,6 +30,7 @@ AFRAME.registerComponent("player-controller", {
     this.mobileCameraYaw = 0;
     this.mobileCameraPitch = 0;
     this.hasMobileCameraRotation = false;
+    this.inputLocked = false;
 
     this.mobileInput = {
       horizontal: 0,
@@ -67,6 +68,8 @@ AFRAME.registerComponent("player-controller", {
     this.triggerWave = this.triggerWave.bind(this);
     this.cacheWalkableZones =
       this.cacheWalkableZones.bind(this);
+    this.lockInput = this.lockInput.bind(this);
+    this.unlockInput = this.unlockInput.bind(this);
 
     window.addEventListener("keydown", this.handleKeyDown);
     window.addEventListener("keyup", this.handleKeyUp);
@@ -91,6 +94,26 @@ AFRAME.registerComponent("player-controller", {
       "gallery-built",
       this.cacheWalkableZones
     );
+    this.el.sceneEl?.addEventListener(
+      "artwork-viewer-opened",
+      this.lockInput
+    );
+    this.el.sceneEl?.addEventListener(
+      "artwork-viewer-closed",
+      this.unlockInput
+    );
+  },
+
+  lockInput() {
+    this.inputLocked = true;
+    this.handleWindowBlur();
+    this.velocity.set(0, 0, 0);
+    this.desiredVelocity.set(0, 0, 0);
+    this.emitMotionState(0, false);
+  },
+
+  unlockInput() {
+    this.inputLocked = false;
   },
 
   isEditableTarget(element) {
@@ -102,7 +125,10 @@ AFRAME.registerComponent("player-controller", {
   },
 
   handleKeyDown(event) {
-    if (this.isEditableTarget(event.target)) {
+    if (
+      this.inputLocked ||
+      this.isEditableTarget(event.target)
+    ) {
       return;
     }
 
@@ -139,6 +165,10 @@ AFRAME.registerComponent("player-controller", {
   },
 
   handleMobileMove(event) {
+    if (this.inputLocked) {
+      return;
+    }
+
     this.mobileInput.horizontal = THREE.MathUtils.clamp(
       Number(event.detail?.x) || 0,
       -1,
@@ -152,10 +182,18 @@ AFRAME.registerComponent("player-controller", {
   },
 
   handleMobileSprint(event) {
+    if (this.inputLocked) {
+      return;
+    }
+
     this.mobileSprint = Boolean(event.detail?.active);
   },
 
   handleMobileLook(event) {
+    if (this.inputLocked) {
+      return;
+    }
+
     const deltaX = Number(event.detail?.deltaX) || 0;
     const deltaY = Number(event.detail?.deltaY) || 0;
     const firstCamera = this.firstPersonCamera?.components.camera;
@@ -216,7 +254,7 @@ AFRAME.registerComponent("player-controller", {
   },
 
   startJump() {
-    if (!this.isGrounded) {
+    if (this.inputLocked || !this.isGrounded) {
       return;
     }
 
@@ -225,6 +263,10 @@ AFRAME.registerComponent("player-controller", {
   },
 
   triggerWave() {
+    if (this.inputLocked) {
+      return;
+    }
+
     this.el.emit("player-action", this.waveActionDetail);
   },
 
@@ -425,7 +467,7 @@ AFRAME.registerComponent("player-controller", {
   },
 
   tick(time, deltaTime) {
-    if (!deltaTime) {
+    if (!deltaTime || this.inputLocked) {
       return;
     }
 
@@ -508,6 +550,14 @@ AFRAME.registerComponent("player-controller", {
     this.el.sceneEl?.removeEventListener(
       "gallery-built",
       this.cacheWalkableZones
+    );
+    this.el.sceneEl?.removeEventListener(
+      "artwork-viewer-opened",
+      this.lockInput
+    );
+    this.el.sceneEl?.removeEventListener(
+      "artwork-viewer-closed",
+      this.unlockInput
     );
   }
 });

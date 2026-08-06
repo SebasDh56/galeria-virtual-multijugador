@@ -12,14 +12,25 @@ AFRAME.registerComponent("view-switcher", {
       document.querySelector("#current-view-label");
     this.scene = this.el.sceneEl;
     this.currentView = this.normalizeView(this.data.defaultView);
+    this.interactionLocked = false;
 
     this.handleKeyDown = this.handleKeyDown.bind(this);
     this.toggleView = this.toggleView.bind(this);
     this.handleSceneLoaded = this.handleSceneLoaded.bind(this);
     this.applyLocalAvatarLayer =
       this.applyLocalAvatarLayer.bind(this);
+    this.lockView = this.lockView.bind(this);
+    this.unlockView = this.unlockView.bind(this);
     window.addEventListener("keydown", this.handleKeyDown);
     this.el.addEventListener("toggle-view", this.toggleView);
+    this.scene?.addEventListener(
+      "artwork-viewer-opened",
+      this.lockView
+    );
+    this.scene?.addEventListener(
+      "artwork-viewer-closed",
+      this.unlockView
+    );
 
     this.setView(this.currentView);
 
@@ -66,6 +77,7 @@ AFRAME.registerComponent("view-switcher", {
     if (
       event.code !== "KeyV" ||
       event.repeat ||
+      this.interactionLocked ||
       this.isEditableTarget(event.target)
     ) {
       return;
@@ -75,6 +87,10 @@ AFRAME.registerComponent("view-switcher", {
   },
 
   toggleView() {
+    if (this.interactionLocked) {
+      return;
+    }
+
     const nextView =
       this.currentView === "first"
         ? "third"
@@ -147,6 +163,18 @@ AFRAME.registerComponent("view-switcher", {
     }
   },
 
+  lockView() {
+    this.interactionLocked = true;
+    this.setFirstPersonLookEnabled(false);
+  },
+
+  unlockView() {
+    this.interactionLocked = false;
+    this.setFirstPersonLookEnabled(
+      this.currentView === "first"
+    );
+  },
+
   setView(view) {
     this.cacheElements();
 
@@ -154,7 +182,9 @@ AFRAME.registerComponent("view-switcher", {
     const isFirstPerson = normalizedView === "first";
 
     this.currentView = normalizedView;
-    this.setFirstPersonLookEnabled(isFirstPerson);
+    this.setFirstPersonLookEnabled(
+      isFirstPerson && !this.interactionLocked
+    );
     this.setCameraActive(this.firstPersonCamera, isFirstPerson);
     this.setCameraActive(this.thirdPersonCamera, !isFirstPerson);
     this.setAvatarVisible();
@@ -197,6 +227,14 @@ AFRAME.registerComponent("view-switcher", {
     this.scene?.removeEventListener(
       "loaded",
       this.handleSceneLoaded
+    );
+    this.scene?.removeEventListener(
+      "artwork-viewer-opened",
+      this.lockView
+    );
+    this.scene?.removeEventListener(
+      "artwork-viewer-closed",
+      this.unlockView
     );
   }
 });

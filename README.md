@@ -97,13 +97,15 @@ En Render se deben configurar `SUPABASE_URL` y
 - `H`: saludar.
 - `V`: cambiar entre primera y tercera persona.
 - Mouse: cámara.
-- Clic o `E`: interactuar con la obra visible.
+- Clic o `E`: abrir la obra visible en primer plano.
+- `Esc`: cerrar la obra y volver a la galería.
 
 ### Móvil
 
 - Joystick izquierdo: movimiento.
 - Arrastrar en el lado derecho: cámara.
 - Botones: correr, saltar, saludar, cambiar vista e interactuar.
+- El botón `X` cierra la obra abierta.
 
 En pantallas móviles se limita automáticamente la densidad de píxeles
 y se reduce el número de luces puntuales activas.
@@ -145,8 +147,10 @@ Como alternativa local sin Supabase:
 
 La galería sirve automáticamente esa carpeta mediante Express. Los
 videos usan carga diferida: no se descargan hasta que el visitante
-interactúa con la obra. Para reducir el tiempo de carga, se recomienda
-usar archivos MP4 H.264 comprimidos y nombres sin espacios ni tildes.
+interactúa con la obra. Un solo visor de video se reutiliza para todas
+las ubicaciones y libera el archivo al cerrarse. Para reducir el tiempo
+de carga, se recomienda usar archivos MP4 H.264 comprimidos y nombres
+sin espacios ni tildes.
 
 ## Despliegue gratuito en Render
 
@@ -171,6 +175,8 @@ está activo, porque actualmente no se necesita una base de datos.
 
 - `public/js/components`: componentes A-Frame con responsabilidades
   separadas.
+- `public/js/components/artwork-viewer.js`: visor accesible y
+  reutilizable para videos e imágenes en primer plano.
 - `public/js/admin`: controladores de las pantallas administrativas.
 - `public/js/services`: cliente y autenticación de Supabase.
 - `public/js/config/gallery-slots.js`: diez ubicaciones usadas por las

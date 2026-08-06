@@ -17,6 +17,7 @@
 
   <script src="/js/config/artwork-media.js"></script>
   <script src="/js/components/video-interaction.js"></script>
+  <script src="/js/components/artwork-viewer.js"></script>
   <script src="/js/components/gallery-builder.js"></script>
   <script src="/js/components/player-controller.js"></script>
   <script src="/js/components/avatar-appearance.js"></script>
@@ -106,7 +107,39 @@
     </div>
   </div>
 
-  <a-scene adaptive-performance background="color: #45474d" renderer="
+  <section id="artwork-viewer" class="artwork-viewer" role="dialog" aria-modal="true"
+    aria-labelledby="artwork-viewer-title" aria-hidden="true" hidden>
+    <article class="artwork-viewer__panel">
+      <header class="artwork-viewer__header">
+        <div>
+          <span class="artwork-viewer__eyebrow">Galería Virtual UDLA</span>
+          <h2 id="artwork-viewer-title">Obra seleccionada</h2>
+          <p id="artwork-viewer-author" hidden></p>
+        </div>
+
+        <button id="artwork-viewer-close" class="artwork-viewer__close" type="button"
+          aria-label="Cerrar obra">&times;</button>
+      </header>
+
+      <div class="artwork-viewer__media">
+        <video id="artwork-viewer-video" controls playsinline preload="metadata" hidden></video>
+        <img id="artwork-viewer-image" alt="" hidden>
+        <p id="artwork-viewer-message" class="artwork-viewer__message" role="status" hidden></p>
+      </div>
+
+      <p class="artwork-viewer__hint"><kbd>Esc</kbd> para volver a la galería</p>
+    </article>
+  </section>
+
+  <a-scene adaptive-performance artwork-viewer="
+      viewer: #artwork-viewer;
+      video: #artwork-viewer-video;
+      image: #artwork-viewer-image;
+      title: #artwork-viewer-title;
+      author: #artwork-viewer-author;
+      message: #artwork-viewer-message;
+      closeButton: #artwork-viewer-close
+    " background="color: #45474d" renderer="
       antialias: true;
       colorManagement: true;
       physicallyCorrectLights: true
