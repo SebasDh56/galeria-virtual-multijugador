@@ -67,6 +67,24 @@ input {
   background: var(--primary);
   font-size: 28px;
   font-weight: 700;
+  text-decoration: none;
+}
+
+.login-card__admin-access {
+  cursor: default;
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.login-card__admin-access:hover {
+  background: var(--primary-hover);
+  box-shadow: 0 0 0 4px rgba(200, 16, 46, 0.14);
+}
+
+.login-card__admin-access:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 3px;
 }
 
 .login-card__eyebrow {
