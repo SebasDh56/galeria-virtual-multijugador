@@ -58,8 +58,10 @@ test("todas las obras permanecen disponibles para interacción", () => {
   component.titleText = createVisualElement();
   component.authorText = createVisualElement();
   component.playIcon = createVisualElement();
+  component.el = createVisualElement();
 
   component.renderArtwork();
+  assert.equal(component.el.attributes.get("visible"), false);
   assert.equal(
     component.surface.classes.has("interactive-artwork"),
     true
@@ -71,6 +73,7 @@ test("todas las obras permanecen disponibles para interacción", () => {
 
   component.data.videoSrc = "https://example.com/obra.mp4";
   component.renderArtwork();
+  assert.equal(component.el.attributes.get("visible"), true);
   assert.equal(
     component.surface.attributes.get("video-interaction").videoSrc,
     "https://example.com/obra.mp4"

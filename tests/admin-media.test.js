@@ -44,6 +44,16 @@ function loadUploadConfiguration() {
   return context.__result;
 }
 
+function loadSlotAllocator(slots) {
+  const source = `${readPublicFile("js/services/artwork-service.js")
+    .replace(/import[\s\S]*?;\s*/g, "")
+    .replaceAll("export ", "")}
+    globalThis.__result = findAvailableSlotId;`;
+  const context = { GALLERY_SLOTS: slots };
+  vm.runInNewContext(source, context);
+  return context.__result;
+}
+
 test("acepta fuentes de video de hasta 150 MiB", () => {
   const { VIDEO_LIMITS, validateSourceVideo } = loadVideoOptimizer();
   const file = {
@@ -98,6 +108,24 @@ test("la galería expone trece ubicaciones únicas", () => {
   assert.equal(slotIds.includes("interior-left-01"), true);
   assert.equal(slotIds.includes("interior-right-01"), true);
   assert.equal(slotIds.includes("lobby-feature-01"), true);
+  assert.deepEqual(
+    slots.map((slot) => slot.label),
+    Array.from({ length: 13 }, (_, index) => `Obra ${index + 1}`)
+  );
+});
+
+test("asigna siempre el primer número libre sin intervención manual", () => {
+  const slots = loadGallerySlots();
+  const findAvailableSlotId = loadSlotAllocator(slots);
+  const existingArtworks = slots.slice(0, 3).map((slot) => ({
+    slot_id: slot.id
+  }));
+
+  assert.equal(findAvailableSlotId(existingArtworks), slots[3].id);
+  assert.equal(
+    findAvailableSlotId(slots.map((slot) => ({ slot_id: slot.id }))),
+    null
+  );
 });
 
 test("las cargas grandes usan bloques TUS de 6 MiB", () => {
@@ -123,4 +151,7 @@ test("el panel incluye controles y métricas de optimización", () => {
   ]) {
     assert.match(dashboard, new RegExp(`id="${elementId}"`));
   }
+
+  assert.match(dashboard, /id="automatic-slot-label"/);
+  assert.doesNotMatch(dashboard, /id="artwork-slot"/);
 });

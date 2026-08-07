@@ -29,6 +29,9 @@ const cancelButton = document.querySelector("#artwork-cancel");
 const logoutButton = document.querySelector("#admin-logout");
 const artworkList = document.querySelector("#artwork-list");
 const artworkCount = document.querySelector("#artwork-count");
+const automaticSlotLabel = document.querySelector(
+  "#automatic-slot-label"
+);
 const videoHelp = document.querySelector("#video-help");
 const selectedVideoName = document.querySelector("#selected-video-name");
 const videoDropzone = document.querySelector("#video-dropzone");
@@ -60,7 +63,6 @@ const fields = {
   title: document.querySelector("#artwork-title"),
   author: document.querySelector("#artwork-author"),
   description: document.querySelector("#artwork-description"),
-  slot: document.querySelector("#artwork-slot"),
   video: document.querySelector("#artwork-video"),
   active: document.querySelector("#artwork-active")
 };
@@ -89,7 +91,6 @@ function getFormValues() {
     title: fields.title.value,
     author: fields.author.value,
     description: fields.description.value,
-    slotId: fields.slot.value,
     isActive: fields.active.checked
   };
 }
@@ -148,26 +149,26 @@ function updateSubmitAvailability() {
     : "";
 }
 
-function renderSlotOptions() {
-  const occupiedSlots = new Set(
-    artworks
-      .filter(
-        (artwork) =>
-          artwork.is_active && artwork.id !== editingArtwork?.id
-      )
-      .map((artwork) => artwork.slot_id)
-  );
-  const options = GALLERY_SLOTS.map((slot) => {
-    const option = new Option(slot.label, slot.id);
-    option.disabled = occupiedSlots.has(slot.id);
-    return option;
-  });
+function getSlotLabel(slotId) {
+  return GALLERY_SLOTS.find((slot) => slot.id === slotId)?.label || "Obra";
+}
 
-  fields.slot.replaceChildren(...options);
-
+function updateAutomaticSlotLabel() {
   if (editingArtwork) {
-    fields.slot.value = editingArtwork.slot_id;
+    automaticSlotLabel.textContent = getSlotLabel(
+      editingArtwork.slot_id
+    );
+    return;
   }
+
+  const usedSlots = new Set(
+    artworks.map((artwork) => artwork.slot_id)
+  );
+  const availableSlot = GALLERY_SLOTS.find(
+    (slot) => !usedSlots.has(slot.id)
+  );
+  automaticSlotLabel.textContent =
+    availableSlot?.label || "Galería completa";
 }
 
 function renderMetrics() {
@@ -215,18 +216,15 @@ function createArtworkCard(artwork) {
   const state = document.createElement("span");
   const fileSize = document.createElement("span");
   const actions = document.createElement("div");
-  const gallerySlot = GALLERY_SLOTS.find(
-    (slot) => slot.id === artwork.slot_id
-  );
 
   card.className = "admin-artwork-item";
   image.src = artwork.thumbnail_url;
   image.alt = `Miniatura de ${artwork.title}`;
   image.loading = "lazy";
   heading.textContent = artwork.title;
-  metadata.textContent = `${artwork.author} · ${
-    gallerySlot?.label || artwork.slot_id
-  }`;
+  metadata.textContent = `${artwork.author} · ${getSlotLabel(
+    artwork.slot_id
+  )}`;
   badges.className = "admin-item-badges";
   state.className = artwork.is_active
     ? "admin-state active"
@@ -254,6 +252,7 @@ function createArtworkCard(artwork) {
 
 function renderArtworks() {
   renderMetrics();
+  updateAutomaticSlotLabel();
   artworkList.replaceChildren();
 
   if (!artworks.length) {
@@ -272,7 +271,6 @@ function renderArtworks() {
 async function loadArtworks() {
   artworks = await fetchArtworks(client);
   renderArtworks();
-  renderSlotOptions();
 }
 
 function resetPreparedMedia() {
@@ -297,7 +295,7 @@ function resetForm() {
     "Obligatorio al crear. La optimización se realiza antes de subir.";
   resetPreparedMedia();
   resetUploadProgress();
-  renderSlotOptions();
+  updateAutomaticSlotLabel();
   updateSubmitAvailability();
 }
 
@@ -398,7 +396,7 @@ function beginEdit(artwork) {
   videoHelp.textContent =
     "Déjalo vacío para conservar el video y la miniatura actuales.";
   resetPreparedMedia();
-  renderSlotOptions();
+  updateAutomaticSlotLabel();
   updateSubmitAvailability();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -489,7 +487,6 @@ async function handleListAction(event) {
           title: artwork.title,
           author: artwork.author,
           description: artwork.description,
-          slotId: artwork.slot_id,
           isActive: !artwork.is_active
         }
       });

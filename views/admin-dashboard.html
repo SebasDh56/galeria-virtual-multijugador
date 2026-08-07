@@ -101,9 +101,12 @@
               placeholder="Contexto, técnica o intención de la obra"></textarea>
           </div>
 
-          <div class="admin-form-group">
-            <label for="artwork-slot">Ubicación dentro de la galería</label>
-            <select id="artwork-slot" name="slotId" required></select>
+          <div class="admin-auto-slot" aria-live="polite">
+            <span>Asignación automática</span>
+            <div>
+              <strong id="automatic-slot-label">Obra 1</strong>
+              <small>Se colocará en el primer espacio libre y conservará esa posición.</small>
+            </div>
           </div>
 
           <div class="admin-form-group">

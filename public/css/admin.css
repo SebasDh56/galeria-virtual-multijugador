@@ -395,6 +395,37 @@ h2 {
   gap: 20px;
 }
 
+.admin-auto-slot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 15px 17px;
+  border: 1px solid rgba(214, 175, 97, 0.22);
+  border-radius: 14px;
+  background: rgba(214, 175, 97, 0.055);
+}
+
+.admin-auto-slot > span {
+  color: var(--admin-muted);
+  font-size: 0.82rem;
+}
+
+.admin-auto-slot > div {
+  display: grid;
+  gap: 3px;
+  text-align: right;
+}
+
+.admin-auto-slot strong {
+  color: var(--admin-gold);
+}
+
+.admin-auto-slot small {
+  color: var(--admin-muted);
+  font-size: 0.74rem;
+}
+
 .admin-form-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -894,6 +925,15 @@ progress::-webkit-progress-value {
 }
 
 @media (max-width: 460px) {
+  .admin-auto-slot {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-auto-slot > div {
+    text-align: left;
+  }
+
   .admin-status-grid {
     grid-template-columns: 1fr;
   }

@@ -94,9 +94,8 @@ create table public.artworks (
   )
 );
 
-create unique index artworks_active_slot_unique
-on public.artworks (slot_id)
-where is_active;
+create unique index artworks_slot_unique
+on public.artworks (slot_id);
 
 create or replace function private.set_updated_at()
 returns trigger

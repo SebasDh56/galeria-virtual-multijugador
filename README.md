@@ -29,6 +29,7 @@ La administración incluye:
 - buckets públicos para lectura y restringidos para escritura;
 - trece espacios predefinidos, incluidos los muros interiores y una obra destacada en el lobby;
 - formulario CRUD para crear, editar, activar y eliminar obras;
+- asignación automática y estable de cada obra al primer espacio libre;
 - selección de videos de hasta 150 MB en formatos habituales;
 - compresión local proporcional a MP4 H.264/AAC, con salida máxima de 45 MB;
 - subidas reanudables a Supabase Storage en bloques de 6 MiB;
@@ -58,6 +59,9 @@ Si el proyecto ya tenía la administración instalada, ejecutar además
 `supabase/migrations/202608060001_expand_gallery_media.sql`. Esta
 migración agrega las tres ubicaciones nuevas, registra las métricas de
 tamaño y fija en 45 MiB el límite final del bucket de videos.
+Después, ejecutar
+`supabase/migrations/202608060002_auto_assign_artwork_slots.sql` para
+numerar las obras existentes y garantizar una posición única por obra.
 
 ### 2. Crear el administrador único
 
@@ -138,8 +142,9 @@ npm run check
 
 ## Videos de las obras
 
-La forma principal de publicar una obra es ingresar en `/admin`, elegir
-una de las trece ubicaciones y seleccionar un video de hasta 150 MB. El
+La forma principal de publicar una obra es ingresar en `/admin` y
+seleccionar un video de hasta 150 MB. La aplicación lo asigna al primer
+espacio libre como `Obra 1` hasta `Obra 13`, sin pedir una ubicación. El
 navegador mantiene su proporción, limita su lado mayor a 1280 px, reduce
 la frecuencia a un máximo de 30 FPS y genera un MP4 H.264/AAC de hasta
 45 MB antes de subirlo. Supabase Storage conserva solamente el resultado

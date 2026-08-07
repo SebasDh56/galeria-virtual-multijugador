@@ -52,10 +52,6 @@ function validateMetadata(values) {
     throw new Error("La descripci\u00f3n no puede superar 500 caracteres.");
   }
 
-  if (!GALLERY_SLOTS.some((slot) => slot.id === values.slotId)) {
-    throw new Error("Selecciona una ubicaci\u00f3n v\u00e1lida.");
-  }
-
   return { title, author, description: description || null };
 }
 
@@ -133,20 +129,34 @@ export async function fetchArtworks(client) {
   );
 }
 
-async function ensureArtworkCapacity(client) {
-  const { count, error } = await client
+export function findAvailableSlotId(artworks = []) {
+  const usedSlots = new Set(
+    artworks.map((artwork) => artwork.slot_id)
+  );
+
+  return GALLERY_SLOTS.find(
+    (slot) => !usedSlots.has(slot.id)
+  )?.id || null;
+}
+
+async function resolveAvailableSlotId(client) {
+  const { data, error } = await client
     .from("artworks")
-    .select("id", { count: "exact", head: true });
+    .select("slot_id");
 
   if (error) {
     throw new Error("No se pudo verificar el espacio disponible.");
   }
 
-  if ((count || 0) >= MAX_ARTWORKS) {
+  const availableSlotId = findAvailableSlotId(data);
+
+  if ((data || []).length >= MAX_ARTWORKS || !availableSlotId) {
     throw new Error(
       `La galería admite un máximo de ${MAX_ARTWORKS} obras.`
     );
   }
+
+  return availableSlotId;
 }
 
 async function uploadAssets({
@@ -204,7 +214,7 @@ export async function createArtwork({
 }) {
   const metadata = validateMetadata(values);
   validateVideoFile(videoFile, true);
-  await ensureArtworkCapacity(client);
+  const slotId = await resolveAvailableSlotId(client);
 
   if (!thumbnailFile) {
     throw new Error("No se pudo generar la miniatura del video.");
@@ -237,7 +247,7 @@ export async function createArtwork({
           Number(originalVideoSize) || videoFile.size,
         thumbnail_path: assets.thumbnailPath,
         thumbnail_url: assets.thumbnailUrl,
-        slot_id: values.slotId,
+        slot_id: slotId,
         is_active: Boolean(values.isActive)
       })
       .select()
@@ -268,6 +278,10 @@ export async function updateArtwork({
   validateVideoFile(videoFile, false);
   let newAssets = null;
 
+  if (!GALLERY_SLOTS.some((slot) => slot.id === artwork.slot_id)) {
+    throw new Error("La obra no tiene una posición válida.");
+  }
+
   try {
     if (videoFile) {
       if (!thumbnailFile) {
@@ -287,7 +301,7 @@ export async function updateArtwork({
       title: metadata.title,
       author: metadata.author,
       description: metadata.description,
-      slot_id: values.slotId,
+      slot_id: artwork.slot_id,
       is_active: Boolean(values.isActive)
     };
 
