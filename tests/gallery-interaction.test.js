@@ -35,10 +35,16 @@ function createVisualElement() {
     classList: {
       add(name) {
         classes.add(name);
+      },
+      remove(name) {
+        classes.delete(name);
       }
     },
     setAttribute(name, value) {
       attributes.set(name, value);
+    },
+    removeAttribute(name) {
+      attributes.delete(name);
     }
   };
 }
@@ -64,16 +70,20 @@ test("todas las obras permanecen disponibles para interacción", () => {
   assert.equal(component.el.attributes.get("visible"), false);
   assert.equal(
     component.surface.classes.has("interactive-artwork"),
-    true
+    false
   );
   assert.equal(
-    component.surface.attributes.get("video-interaction").videoSrc,
-    ""
+    component.surface.attributes.has("video-interaction"),
+    false
   );
 
   component.data.videoSrc = "https://example.com/obra.mp4";
   component.renderArtwork();
   assert.equal(component.el.attributes.get("visible"), true);
+  assert.equal(
+    component.surface.classes.has("interactive-artwork"),
+    true
+  );
   assert.equal(
     component.surface.attributes.get("video-interaction").videoSrc,
     "https://example.com/obra.mp4"

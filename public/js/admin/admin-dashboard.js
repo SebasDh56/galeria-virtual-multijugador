@@ -14,6 +14,7 @@ import {
 } from "../services/artwork-service.js";
 import { generateThumbnail } from "./thumbnail-generator.js";
 import {
+  cancelVideoOptimization,
   calculateSavings,
   formatFileSize,
   optimizeVideo,
@@ -40,6 +41,9 @@ const thumbnailPreview = document.querySelector("#thumbnail-preview");
 const optimizerPanel = document.querySelector("#optimizer-panel");
 const optimizerStage = document.querySelector("#optimizer-stage");
 const optimizerPercent = document.querySelector("#optimizer-percent");
+const optimizationCancelButton = document.querySelector(
+  "#optimizer-cancel"
+);
 const optimizationProgress = document.querySelector(
   "#optimization-progress"
 );
@@ -118,6 +122,8 @@ function setOptimizationProgress(value, stage) {
 
 function resetOptimization() {
   optimizerPanel.hidden = true;
+  optimizationCancelButton.hidden = true;
+  optimizationCancelButton.disabled = false;
   optimizerPanel.dataset.state = "";
   optimizationProgress.value = 0;
   optimizerPercent.textContent = "0%";
@@ -321,6 +327,8 @@ async function prepareVideo(sourceVideo) {
   selectedVideoName.textContent = sourceVideo.name;
   originalVideoSize.textContent = formatFileSize(sourceVideo.size);
   setOptimizationProgress(0.01, "Validando archivo");
+  optimizationCancelButton.hidden = false;
+  optimizationCancelButton.disabled = false;
 
   try {
     validateSourceVideo(sourceVideo, true);
@@ -344,6 +352,13 @@ async function prepareVideo(sourceVideo) {
       "success"
     );
   } catch (error) {
+    if (error.name === "AbortError") {
+      fields.video.value = "";
+      resetPreparedMedia();
+      setStatus(error.message, "warning");
+      return;
+    }
+
     try {
       validateVideoFile(sourceVideo, true);
       preparedVideo = {
@@ -368,6 +383,8 @@ async function prepareVideo(sourceVideo) {
   } finally {
     isProcessingVideo = false;
     fields.video.disabled = false;
+    optimizationCancelButton.hidden = true;
+    optimizationCancelButton.disabled = false;
     updateSubmitAvailability();
   }
 }
@@ -560,6 +577,11 @@ videoDropzone.addEventListener("dragleave", () => {
   videoDropzone.classList.remove("is-dragging");
 });
 videoDropzone.addEventListener("drop", handleDroppedVideo);
+optimizationCancelButton.addEventListener("click", () => {
+  optimizationCancelButton.disabled = true;
+  optimizerStage.textContent = "Cancelando optimización";
+  cancelVideoOptimization();
+});
 logoutButton.addEventListener("click", async () => {
   if (!client) {
     return;

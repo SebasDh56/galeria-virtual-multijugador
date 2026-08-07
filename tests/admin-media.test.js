@@ -147,11 +147,47 @@ test("el panel incluye controles y métricas de optimización", () => {
     "optimization-progress",
     "storage-total",
     "savings-total",
-    "video-dropzone"
+    "video-dropzone",
+    "optimizer-cancel"
   ]) {
     assert.match(dashboard, new RegExp(`id="${elementId}"`));
   }
 
   assert.match(dashboard, /id="automatic-slot-label"/);
   assert.doesNotMatch(dashboard, /id="artwork-slot"/);
+});
+
+test("el optimizador usa un worker FFmpeg local y no una CDN", () => {
+  const optimizer = readPublicFile("js/admin/video-optimizer.js");
+  const vendorRoot = path.join(__dirname, "../public/vendor/ffmpeg");
+  const requiredFiles = [
+    "ffmpeg/index.js",
+    "ffmpeg/classes.js",
+    "ffmpeg/worker.js",
+    "core/ffmpeg-core.js",
+    "core/ffmpeg-core.wasm"
+  ];
+
+  for (const relativePath of requiredFiles) {
+    assert.equal(
+      fs.existsSync(path.join(vendorRoot, relativePath)),
+      true,
+      `Falta ${relativePath}`
+    );
+  }
+
+  assert.match(optimizer, /\/vendor\/ffmpeg\/ffmpeg\/index\.js/);
+  assert.match(optimizer, /TRANSCODE_TIMEOUT_MS/);
+  assert.doesNotMatch(optimizer, /unpkg\.com|cdn\.jsdelivr\.net/);
+  assert.ok(
+    fs.statSync(
+      path.join(vendorRoot, "core/ffmpeg-core.wasm")
+    ).size > 30 * 1024 * 1024
+  );
+});
+
+test("los MP4 pequenos evitan una compresion innecesaria", () => {
+  const { VIDEO_LIMITS } = loadVideoOptimizer();
+
+  assert.equal(VIDEO_LIMITS.passthroughSize, 12 * 1024 * 1024);
 });

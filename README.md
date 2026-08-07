@@ -151,11 +151,18 @@ la frecuencia a un máximo de 30 FPS y genera un MP4 H.264/AAC de hasta
 optimizado y la miniatura WebP; el archivo original no pasa por Render ni
 se almacena en la base de datos.
 
-La compresión utiliza un motor FFmpeg WebAssembly cargado únicamente al
-seleccionar un video. El proceso puede tardar varios minutos según la
-duración del archivo y la potencia del equipo administrativo. Si un MP4
-ya pesa 45 MB o menos y recomprimirlo no reduce el tamaño, se conserva el
-original para no perder calidad ni aumentar el consumo.
+La compresión utiliza FFmpeg WebAssembly autoalojado y se ejecuta en un
+Web Worker, por lo que el trabajo pesado no bloquea la interfaz. Sus
+archivos se cargan únicamente al seleccionar un video y el procesamiento
+se realiza en una sola pasada. El panel permite cancelar una operación y
+aplica tiempos límite para evitar procesos detenidos. Un MP4 de hasta
+12 MiB se usa directamente; para los demás, si el resultado comprimido no
+reduce el tamaño y el original cumple el límite final, se conserva el
+original para evitar una pérdida innecesaria de calidad.
+
+El tiempo depende de la duración del video y de la potencia del equipo
+administrativo. El motor también incluye una detección alternativa de
+duración para archivos WebM o MOV cuyo metadato no puede leer FFprobe.
 
 Como alternativa local sin Supabase:
 

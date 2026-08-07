@@ -2,11 +2,14 @@ const MEBIBYTE = 1024 * 1024;
 const MAX_SOURCE_SIZE = 150 * MEBIBYTE;
 const MAX_OUTPUT_SIZE = 45 * MEBIBYTE;
 const TARGET_OUTPUT_SIZE = 40 * MEBIBYTE;
+const PASSTHROUGH_SIZE = 12 * MEBIBYTE;
 const AUDIO_BITRATE_KBPS = 96;
-const FFMPEG_SCRIPT_URL =
-  "https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js";
-const FFMPEG_CORE_URL =
-  "https://unpkg.com/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.js";
+const ENGINE_LOAD_TIMEOUT_MS = 90000;
+const PROBE_TIMEOUT_MS = 30000;
+const TRANSCODE_TIMEOUT_MS = 25 * 60 * 1000;
+const FFMPEG_MODULE_URL = "/vendor/ffmpeg/ffmpeg/index.js";
+const FFMPEG_CORE_URL = "/vendor/ffmpeg/core/ffmpeg-core.js";
+const FFMPEG_WASM_URL = "/vendor/ffmpeg/core/ffmpeg-core.wasm";
 const SUPPORTED_EXTENSIONS = new Set([
   "avi",
   "m4v",
@@ -23,6 +26,7 @@ let ffmpegInstance = null;
 let ffmpegLoadPromise = null;
 let activeProgressCallback = null;
 let detectedDuration = 0;
+let cancellationRequested = false;
 
 function clamp(value, minimum, maximum) {
   return Math.min(maximum, Math.max(minimum, value));
@@ -63,61 +67,65 @@ function parseDuration(message) {
   );
 }
 
-function loadScript(source) {
+function createCancelledError() {
+  const error = new Error(
+    "Optimización cancelada. Puedes seleccionar el video nuevamente."
+  );
+  error.name = "AbortError";
+  return error;
+}
+
+function resetFFmpeg() {
+  try {
+    ffmpegInstance?.terminate();
+  } catch (error) {
+    // La instancia puede haber terminado por un tiempo límite.
+  }
+
+  ffmpegInstance = null;
+  ffmpegLoadPromise = null;
+}
+
+function withTimeout(promise, timeoutMs, onTimeout) {
   return new Promise((resolve, reject) => {
-    const existing = document.querySelector(
-      `script[data-video-optimizer="${source}"]`
-    );
+    const timeoutId = window.setTimeout(() => {
+      onTimeout?.();
+      reject(
+        new Error(
+          "El motor de video tardó demasiado en iniciar. Intenta nuevamente."
+        )
+      );
+    }, timeoutMs);
 
-    if (existing) {
-      existing.remove();
-    }
-
-    const script = document.createElement("script");
-    script.src = source;
-    script.crossOrigin = "anonymous";
-    script.dataset.videoOptimizer = source;
-    script.addEventListener("load", resolve, { once: true });
-    script.addEventListener(
-      "error",
-      () => reject(
-        new Error("No se pudo cargar el motor de optimización.")
-      ),
-      { once: true }
+    promise.then(
+      (value) => {
+        window.clearTimeout(timeoutId);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timeoutId);
+        reject(error);
+      }
     );
-    document.head.appendChild(script);
   });
 }
 
 async function getFFmpeg() {
-  if (ffmpegInstance?.isLoaded()) {
+  if (ffmpegInstance?.loaded) {
     return ffmpegInstance;
   }
 
   if (!ffmpegLoadPromise) {
     ffmpegLoadPromise = (async () => {
-      if (!window.FFmpeg?.createFFmpeg) {
-        await loadScript(FFMPEG_SCRIPT_URL);
-      }
+      const { FFmpeg } = await import(FFMPEG_MODULE_URL);
+      const instance = new FFmpeg();
 
-      if (!window.FFmpeg?.createFFmpeg) {
-        throw new Error(
-          "El navegador no pudo iniciar el optimizador de video."
-        );
-      }
-
-      const instance = window.FFmpeg.createFFmpeg({
-        corePath: FFMPEG_CORE_URL,
-        mainName: "main",
-        log: false
-      });
-
-      instance.setProgress(({ ratio }) => {
+      instance.on("progress", ({ progress }) => {
         activeProgressCallback?.(
-          clamp(Number(ratio) || 0, 0, 1)
+          clamp(Number(progress) || 0, 0, 1)
         );
       });
-      instance.setLogger(({ message }) => {
+      instance.on("log", ({ message }) => {
         const duration = parseDuration(message);
 
         if (duration > 0) {
@@ -125,11 +133,24 @@ async function getFFmpeg() {
         }
       });
 
-      await instance.load();
       ffmpegInstance = instance;
+      const coreURL = new URL(
+        FFMPEG_CORE_URL,
+        window.location.origin
+      ).href;
+      const wasmURL = new URL(
+        FFMPEG_WASM_URL,
+        window.location.origin
+      ).href;
+
+      await withTimeout(
+        instance.load({ coreURL, wasmURL }),
+        ENGINE_LOAD_TIMEOUT_MS,
+        resetFFmpeg
+      );
       return instance;
     })().catch((error) => {
-      ffmpegLoadPromise = null;
+      resetFFmpeg();
       throw error;
     });
   }
@@ -137,22 +158,68 @@ async function getFFmpeg() {
   return ffmpegLoadPromise;
 }
 
-function createCommonArguments(inputName) {
+function getScaleFilter(videoBitrate) {
+  const maximumDimension = videoBitrate < 700
+    ? 854
+    : videoBitrate < 1200
+      ? 960
+      : 1280;
+
+  return `scale=w='min(${maximumDimension},iw)':h='min(${maximumDimension},ih)':force_original_aspect_ratio=decrease:force_divisible_by=2,fps=30`;
+}
+
+function calculateVideoBitrate(durationSeconds, sourceSize) {
+  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+    return 0;
+  }
+
+  const desiredOutputSize = Math.min(
+    TARGET_OUTPUT_SIZE,
+    sourceSize * 0.82
+  );
+  const totalKbps = Math.floor(
+    (desiredOutputSize * 8) / durationSeconds / 1000
+  );
+
+  return clamp(
+    totalKbps - AUDIO_BITRATE_KBPS - 28,
+    160,
+    3500
+  );
+}
+
+function createTranscodeArguments(
+  inputName,
+  outputName,
+  videoBitrate
+) {
   return [
     "-i",
     inputName,
+    "-map",
+    "0:v:0",
+    "-map",
+    "0:a:0?",
     "-map_metadata",
     "-1",
     "-vf",
-    "scale=w='min(1280,iw)':h='min(1280,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2,fps=30",
+    getScaleFilter(videoBitrate),
     "-c:v",
     "libx264",
     "-preset",
-    "veryfast",
+    "ultrafast",
     "-profile:v",
     "main",
     "-pix_fmt",
     "yuv420p",
+    "-b:v",
+    `${Math.round(videoBitrate)}k`,
+    "-maxrate",
+    `${Math.round(videoBitrate * 1.12)}k`,
+    "-bufsize",
+    `${Math.round(videoBitrate * 2)}k`,
+    "-threads",
+    "1",
     "-c:a",
     "aac",
     "-b:a",
@@ -160,12 +227,86 @@ function createCommonArguments(inputName) {
     "-ac",
     "2",
     "-movflags",
-    "+faststart"
+    "+faststart",
+    outputName
   ];
 }
 
+async function readDuration(ffmpeg, inputName, durationFileName) {
+  const probeResult = await ffmpeg.ffprobe(
+    [
+      "-v",
+      "error",
+      "-show_entries",
+      "format=duration",
+      "-of",
+      "default=noprint_wrappers=1:nokey=1",
+      inputName,
+      "-o",
+      durationFileName
+    ],
+    PROBE_TIMEOUT_MS
+  );
+
+  if (probeResult !== 0) {
+    return detectedDuration;
+  }
+
+  const durationData = await ffmpeg.readFile(durationFileName);
+  const duration = Number(
+    new TextDecoder().decode(durationData).trim()
+  );
+
+  return Number.isFinite(duration) && duration > 0
+    ? duration
+    : detectedDuration;
+}
+
+function readBrowserDuration(file) {
+  return new Promise((resolve) => {
+    const video = document.createElement("video");
+    const videoURL = URL.createObjectURL(file);
+    let timeoutId;
+    let isSettled = false;
+
+    const finish = (duration = 0) => {
+      if (isSettled) return;
+
+      isSettled = true;
+      window.clearTimeout(timeoutId);
+      video.removeAttribute("src");
+      video.load();
+      URL.revokeObjectURL(videoURL);
+      resolve(
+        Number.isFinite(duration) && duration > 0
+          ? duration
+          : 0
+      );
+    };
+    const inspectDuration = () => {
+      if (Number.isFinite(video.duration) && video.duration > 0) {
+        finish(video.duration);
+        return;
+      }
+
+      if (video.duration === Infinity) {
+        video.currentTime = Number.MAX_SAFE_INTEGER;
+      }
+    };
+
+    video.preload = "metadata";
+    video.muted = true;
+    video.addEventListener("loadedmetadata", inspectDuration);
+    video.addEventListener("durationchange", inspectDuration);
+    video.addEventListener("error", () => finish());
+    timeoutId = window.setTimeout(() => finish(), 8000);
+    video.src = videoURL;
+    video.load();
+  });
+}
+
 async function readOutput(ffmpeg, outputName, originalFile) {
-  const data = ffmpeg.FS("readFile", outputName);
+  const data = await ffmpeg.readFile(outputName);
   const outputNameBase = getSafeBaseName(originalFile.name);
 
   return new File(
@@ -178,58 +319,19 @@ async function readOutput(ffmpeg, outputName, originalFile) {
   );
 }
 
-function removeVirtualFile(ffmpeg, fileName) {
+async function removeVirtualFile(ffmpeg, fileName) {
   try {
-    ffmpeg.FS("unlink", fileName);
+    await ffmpeg.deleteFile(fileName);
   } catch (error) {
-    // El archivo puede no existir si FFmpeg terminó con error.
+    // El archivo puede no existir si el proceso fue cancelado.
   }
 }
 
-async function createQualityOutput(ffmpeg, inputName, outputName) {
-  await ffmpeg.run(
-    ...createCommonArguments(inputName),
-    "-crf",
-    "27",
-    outputName
-  );
-}
-
-function calculateVideoBitrate(durationSeconds) {
-  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
-    return 0;
-  }
-
-  const totalKbps = Math.floor(
-    (TARGET_OUTPUT_SIZE * 8) / durationSeconds / 1000
-  );
-
-  return Math.max(220, totalKbps - AUDIO_BITRATE_KBPS - 24);
-}
-
-async function createLimitedOutput(
-  ffmpeg,
-  inputName,
-  outputName,
-  durationSeconds
-) {
-  const videoBitrate = calculateVideoBitrate(durationSeconds);
-
-  if (!videoBitrate) {
-    throw new Error(
-      "No se pudo calcular una compresión segura para este video."
-    );
-  }
-
-  await ffmpeg.run(
-    ...createCommonArguments(inputName),
-    "-b:v",
-    `${videoBitrate}k`,
-    "-maxrate",
-    `${Math.round(videoBitrate * 1.15)}k`,
-    "-bufsize",
-    `${videoBitrate * 2}k`,
-    outputName
+function canUseOriginalDirectly(file) {
+  return (
+    getExtension(file.name) === "mp4" &&
+    file.type === "video/mp4" &&
+    file.size <= PASSTHROUGH_SIZE
   );
 }
 
@@ -276,68 +378,126 @@ export function calculateSavings(originalSize, optimizedSize) {
   return { savedBytes, savedPercent };
 }
 
+export function cancelVideoOptimization() {
+  cancellationRequested = true;
+  resetFFmpeg();
+}
+
 export async function optimizeVideo(
   originalFile,
   { onProgress, onStage } = {}
 ) {
   validateSourceVideo(originalFile, true);
-  onStage?.("Preparando el motor de optimización");
+  cancellationRequested = false;
+
+  if (canUseOriginalDirectly(originalFile)) {
+    onStage?.("El video ya está optimizado");
+    onProgress?.(1);
+    return {
+      file: originalFile,
+      originalSize: originalFile.size,
+      optimizedSize: originalFile.size,
+      wasOptimized: false,
+      ...calculateSavings(originalFile.size, originalFile.size)
+    };
+  }
+
+  onStage?.("Iniciando el optimizador local");
   onProgress?.(0.01);
 
-  const ffmpeg = await getFFmpeg();
+  let ffmpeg;
+
+  try {
+    ffmpeg = await getFFmpeg();
+  } catch (error) {
+    if (
+      cancellationRequested ||
+      error?.message?.toLowerCase().includes("terminate")
+    ) {
+      throw createCancelledError();
+    }
+
+    throw error;
+  }
+
+  if (cancellationRequested) {
+    throw createCancelledError();
+  }
+
   const inputExtension = getExtension(originalFile.name);
   const jobId = crypto.randomUUID().replaceAll("-", "");
   const inputName = `input-${jobId}.${inputExtension}`;
-  const qualityOutputName = `quality-${jobId}.mp4`;
-  const limitedOutputName = `limited-${jobId}.mp4`;
-  let optimizedFile = null;
-
+  const outputName = `output-${jobId}.mp4`;
+  const durationFileName = `duration-${jobId}.txt`;
   detectedDuration = 0;
-  activeProgressCallback = (progress) => {
-    onProgress?.(0.08 + progress * 0.78);
-  };
 
   try {
-    onStage?.("Leyendo el video en este dispositivo");
-    ffmpeg.FS(
-      "writeFile",
+    onStage?.("Preparando el archivo sin enviarlo a internet");
+    onProgress?.(0.08);
+    await ffmpeg.writeFile(
       inputName,
-      await window.FFmpeg.fetchFile(originalFile)
+      new Uint8Array(await originalFile.arrayBuffer())
     );
 
-    onStage?.("Comprimiendo y ajustando la resolución");
-    await createQualityOutput(
+    if (cancellationRequested) {
+      throw createCancelledError();
+    }
+
+    onStage?.("Analizando duración y calidad");
+    let duration = await readDuration(
       ffmpeg,
       inputName,
-      qualityOutputName
+      durationFileName
     );
-    optimizedFile = await readOutput(
+
+    if (!duration) {
+      duration = await readBrowserDuration(originalFile);
+    }
+    const videoBitrate = calculateVideoBitrate(
+      duration,
+      originalFile.size
+    );
+
+    if (!videoBitrate) {
+      throw new Error(
+        "No se pudo leer la duración del video. Convierte el archivo a MP4 e intenta nuevamente."
+      );
+    }
+
+    onStage?.("Comprimiendo en segundo plano");
+    activeProgressCallback = (progress) => {
+      onProgress?.(0.12 + progress * 0.82);
+    };
+    const result = await ffmpeg.exec(
+      createTranscodeArguments(
+        inputName,
+        outputName,
+        videoBitrate
+      ),
+      TRANSCODE_TIMEOUT_MS
+    );
+
+    if (cancellationRequested) {
+      throw createCancelledError();
+    }
+
+    if (result !== 0) {
+      throw new Error(
+        result === 1
+          ? "La compresión superó el tiempo permitido. Prueba con un video más corto."
+          : "No se pudo convertir este video."
+      );
+    }
+
+    const optimizedFile = await readOutput(
       ffmpeg,
-      qualityOutputName,
+      outputName,
       originalFile
     );
 
     if (optimizedFile.size > MAX_OUTPUT_SIZE) {
-      onStage?.("Aplicando una segunda optimización de tamaño");
-      activeProgressCallback = (progress) => {
-        onProgress?.(0.45 + progress * 0.45);
-      };
-      await createLimitedOutput(
-        ffmpeg,
-        inputName,
-        limitedOutputName,
-        detectedDuration
-      );
-      optimizedFile = await readOutput(
-        ffmpeg,
-        limitedOutputName,
-        originalFile
-      );
-    }
-
-    if (optimizedFile.size > MAX_OUTPUT_SIZE) {
       throw new Error(
-        "El resultado aún supera 45 MB. Reduce la duración del video."
+        "El resultado supera 45 MB. Reduce la duración del video e intenta nuevamente."
       );
     }
 
@@ -364,16 +524,25 @@ export async function optimizeVideo(
       wasOptimized: selectedFile !== originalFile,
       ...savings
     };
+  } catch (error) {
+    if (cancellationRequested || error?.message?.includes("terminate")) {
+      throw createCancelledError();
+    }
+
+    throw error;
   } finally {
     activeProgressCallback = null;
-    removeVirtualFile(ffmpeg, inputName);
-    removeVirtualFile(ffmpeg, qualityOutputName);
-    removeVirtualFile(ffmpeg, limitedOutputName);
+    await Promise.allSettled([
+      removeVirtualFile(ffmpeg, inputName),
+      removeVirtualFile(ffmpeg, outputName),
+      removeVirtualFile(ffmpeg, durationFileName)
+    ]);
   }
 }
 
 export const VIDEO_LIMITS = Object.freeze({
   maxSourceSize: MAX_SOURCE_SIZE,
   maxOutputSize: MAX_OUTPUT_SIZE,
-  targetOutputSize: TARGET_OUTPUT_SIZE
+  targetOutputSize: TARGET_OUTPUT_SIZE,
+  passthroughSize: PASSTHROUGH_SIZE
 });

@@ -549,6 +549,18 @@ h2 {
   gap: 11px;
 }
 
+.admin-optimizer__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-optimizer__actions button {
+  min-height: 32px;
+  padding: 5px 10px;
+  font-size: 0.72rem;
+}
+
 .admin-optimizer__heading div div {
   display: grid;
   gap: 3px;
