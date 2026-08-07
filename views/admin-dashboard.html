@@ -1,41 +1,203 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
-  <title>Administración | Galería Virtual</title>
+  <meta name="theme-color" content="#101014">
+  <title>Administración | Galería Virtual UDLA</title>
   <link rel="stylesheet" href="/css/admin.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script type="module" src="/js/admin/admin-dashboard.js"></script>
 </head>
+
 <body class="auth-pending">
-  <div class="admin-session-check" role="status">Verificando sesión administrativa...</div>
+  <div class="admin-session-check" role="status">
+    <span class="admin-loader" aria-hidden="true"></span>
+    Verificando sesión administrativa...
+  </div>
+
   <header class="admin-header">
-    <div><p class="admin-eyebrow">Galería Virtual UDLA</p><h1>Panel administrativo</h1></div>
-    <div class="admin-account"><span id="admin-email-label"></span><button id="admin-logout" class="admin-button-secondary" type="button">Cerrar sesión</button></div>
+    <a class="admin-brand" href="/" aria-label="Galería Virtual UDLA">
+      <span class="admin-brand__mark" aria-hidden="true">◈</span>
+      <span>
+        <small>UDLA</small>
+        <strong>Galería Virtual</strong>
+      </span>
+    </a>
+
+    <div class="admin-account">
+      <span class="admin-account__status" aria-hidden="true"></span>
+      <span id="admin-email-label"></span>
+      <button id="admin-logout" class="admin-button-secondary" type="button">
+        Cerrar sesión
+      </button>
+    </div>
   </header>
+
   <main class="admin-dashboard">
     <p id="admin-status" class="admin-form-status" role="alert" aria-live="polite"></p>
-    <section class="admin-card admin-artwork-layout">
-      <div><p class="admin-eyebrow">Obras audiovisuales</p><h2 id="form-title">Añadir obra</h2><p class="admin-description">Máximo 10 obras activas, una por ubicación. Solo MP4 de hasta 45 MB.</p></div>
-      <form id="artwork-form" class="admin-artwork-form">
-        <div class="admin-form-group"><label for="artwork-title">Nombre</label><input id="artwork-title" name="title" maxlength="120" required></div>
-        <div class="admin-form-group"><label for="artwork-author">Autor</label><input id="artwork-author" name="author" maxlength="100" required></div>
-        <div class="admin-form-group"><label for="artwork-description">Descripción</label><textarea id="artwork-description" name="description" maxlength="500"></textarea></div>
-        <div class="admin-form-group"><label for="artwork-slot">Ubicación</label><select id="artwork-slot" name="slotId" required></select></div>
-        <div class="admin-form-group"><label for="artwork-video">Video MP4</label><input id="artwork-video" name="video" type="file" accept="video/mp4"><small id="video-help">Obligatorio al crear. La miniatura se genera en este navegador.</small></div>
-        <img id="thumbnail-preview" class="thumbnail-preview" alt="Vista previa de la miniatura" hidden>
-        <label class="admin-toggle"><input id="artwork-active" name="isActive" type="checkbox" checked><span>Publicar en la galería</span></label>
-        <progress id="upload-progress" max="1" value="0" hidden></progress><span id="upload-progress-label" class="admin-muted"></span>
-        <div class="admin-form-actions"><button id="artwork-submit" type="submit">Guardar obra</button><button id="artwork-cancel" class="admin-button-secondary" type="button" hidden>Cancelar edición</button></div>
-      </form>
+
+    <section class="admin-hero" aria-labelledby="admin-title">
+      <div class="admin-hero__copy">
+        <p class="admin-eyebrow">Curaduría digital</p>
+        <h1 id="admin-title">Administra la experiencia audiovisual</h1>
+        <p>
+          Publica, optimiza y organiza las obras que los visitantes descubrirán dentro de la galería 3D.
+        </p>
+      </div>
+
+      <div class="admin-status-grid" aria-label="Resumen de la galería">
+        <article>
+          <span>Obras registradas</span>
+          <strong id="artwork-total">0 / 13</strong>
+        </article>
+        <article>
+          <span>Ubicaciones activas</span>
+          <strong id="active-total">0 / 13</strong>
+        </article>
+        <article>
+          <span>Videos almacenados</span>
+          <strong id="storage-total">0 MB</strong>
+        </article>
+        <article>
+          <span>Espacio ahorrado</span>
+          <strong id="savings-total">0 MB</strong>
+        </article>
+      </div>
     </section>
+
+    <section class="admin-workspace">
+      <article class="admin-card admin-editor-card">
+        <header class="admin-section-heading">
+          <div>
+            <p class="admin-eyebrow">Nueva publicación</p>
+            <h2 id="form-title">Añadir obra</h2>
+          </div>
+          <span class="admin-capacity-badge">Hasta 150 MB</span>
+        </header>
+
+        <p class="admin-description">
+          El video se comprime en esta computadora, se normaliza a MP4 y solo después se envía a Storage.
+        </p>
+
+        <form id="artwork-form" class="admin-artwork-form">
+          <div class="admin-form-row">
+            <div class="admin-form-group">
+              <label for="artwork-title">Nombre de la obra</label>
+              <input id="artwork-title" name="title" maxlength="120" autocomplete="off" required>
+            </div>
+
+            <div class="admin-form-group">
+              <label for="artwork-author">Autor</label>
+              <input id="artwork-author" name="author" maxlength="100" autocomplete="off" required>
+            </div>
+          </div>
+
+          <div class="admin-form-group">
+            <label for="artwork-description">Descripción</label>
+            <textarea id="artwork-description" name="description" maxlength="500"
+              placeholder="Contexto, técnica o intención de la obra"></textarea>
+          </div>
+
+          <div class="admin-form-group">
+            <label for="artwork-slot">Ubicación dentro de la galería</label>
+            <select id="artwork-slot" name="slotId" required></select>
+          </div>
+
+          <div class="admin-form-group">
+            <span class="admin-field-label">Archivo audiovisual</span>
+            <label id="video-dropzone" class="admin-dropzone" for="artwork-video">
+              <input id="artwork-video" name="video" type="file"
+                accept="video/mp4,video/quicktime,video/webm,video/x-msvideo,video/x-matroska,video/mpeg,video/ogg,.m4v,.mkv,.avi">
+              <span class="admin-dropzone__icon" aria-hidden="true">↑</span>
+              <strong>Arrastra el video o selecciónalo</strong>
+              <span id="selected-video-name">MP4, MOV, WebM, AVI, MKV, MPEG u OGV · máximo 150 MB</span>
+            </label>
+            <small id="video-help">Obligatorio al crear. La optimización se realiza antes de subir.</small>
+          </div>
+
+          <section id="optimizer-panel" class="admin-optimizer" aria-live="polite" hidden>
+            <div class="admin-optimizer__heading">
+              <div>
+                <span class="admin-optimizer__icon" aria-hidden="true">✦</span>
+                <div>
+                  <strong>Optimización local</strong>
+                  <span id="optimizer-stage">Preparando video</span>
+                </div>
+              </div>
+              <strong id="optimizer-percent">0%</strong>
+            </div>
+            <progress id="optimization-progress" max="1" value="0"></progress>
+            <div class="admin-optimizer__stats">
+              <span>Original <strong id="original-video-size">—</strong></span>
+              <span>Optimizado <strong id="optimized-video-size">—</strong></span>
+              <span>Ahorro <strong id="optimized-video-savings">—</strong></span>
+            </div>
+          </section>
+
+          <figure id="thumbnail-figure" class="admin-preview" hidden>
+            <img id="thumbnail-preview" alt="Vista previa de la miniatura">
+            <figcaption>Miniatura que aparecerá en el cuadro</figcaption>
+          </figure>
+
+          <label class="admin-toggle">
+            <input id="artwork-active" name="isActive" type="checkbox" checked>
+            <span>
+              <strong>Publicar en la galería</strong>
+              <small>La obra estará disponible para los visitantes.</small>
+            </span>
+          </label>
+
+          <section id="upload-panel" class="admin-upload-progress" hidden>
+            <div>
+              <strong>Subiendo a Supabase Storage</strong>
+              <span id="upload-progress-label">0%</span>
+            </div>
+            <progress id="upload-progress" max="1" value="0"></progress>
+            <small>La subida continúa por partes si la conexión se vuelve inestable.</small>
+          </section>
+
+          <div class="admin-form-actions">
+            <button id="artwork-submit" type="submit">Guardar obra</button>
+            <button id="artwork-cancel" class="admin-button-secondary" type="button" hidden>
+              Cancelar edición
+            </button>
+          </div>
+        </form>
+      </article>
+
+      <aside class="admin-card admin-guide-card">
+        <p class="admin-eyebrow">Perfil optimizado</p>
+        <h2>Calidad preparada para web</h2>
+        <ul class="admin-guide-list">
+          <li><span>01</span><div><strong>Resolución proporcional</strong><p>Máximo 1280 px, sin deformar ni ampliar videos pequeños.</p></div></li>
+          <li><span>02</span><div><strong>Compatibilidad amplia</strong><p>Salida MP4 H.264 con audio AAC para PC y móvil.</p></div></li>
+          <li><span>03</span><div><strong>Carga eficiente</strong><p>El resultado no supera 45 MB y se sube en bloques recuperables.</p></div></li>
+        </ul>
+        <div class="admin-storage-note">
+          <span aria-hidden="true">◎</span>
+          <p><strong>El archivo original nunca llega a Render.</strong> Todo el procesamiento ocurre en este dispositivo.</p>
+        </div>
+      </aside>
+    </section>
+
     <section class="admin-card admin-list-card" aria-labelledby="artwork-list-title">
-      <div class="admin-list-heading"><div><p class="admin-eyebrow">Contenido cargado</p><h2 id="artwork-list-title">Obras registradas</h2></div><span id="artwork-count" class="admin-count">0 / 10 activas</span></div>
+      <header class="admin-list-heading">
+        <div>
+          <p class="admin-eyebrow">Colección publicada</p>
+          <h2 id="artwork-list-title">Obras registradas</h2>
+        </div>
+        <span id="artwork-count" class="admin-count">0 / 13</span>
+      </header>
       <div id="artwork-list" class="admin-artwork-list" aria-live="polite"></div>
     </section>
-    <a class="admin-gallery-link" href="/">Abrir acceso de visitantes</a>
+
+    <a class="admin-gallery-link" href="/">
+      <span aria-hidden="true">←</span> Abrir acceso de visitantes
+    </a>
   </main>
 </body>
+
 </html>

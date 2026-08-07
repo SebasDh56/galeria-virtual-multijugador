@@ -306,7 +306,9 @@ io.on("connection", (socket) => {
   });
 
   socket.on("player:action", (payload = {}) => {
-    if (!players.has(socket.id) || payload.action !== "wave") {
+    const player = players.get(socket.id);
+
+    if (!player || payload.action !== "wave") {
       return;
     }
 

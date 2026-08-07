@@ -78,5 +78,29 @@ export const GALLERY_SLOTS = Object.freeze([
     rotation: "0 -90 0",
     width: 4,
     height: 2
+  }),
+  Object.freeze({
+    id: "interior-left-01",
+    label: "Pared interior izquierda",
+    position: "-8 2.65 -9.22",
+    rotation: "0 180 0",
+    width: 4,
+    height: 2
+  }),
+  Object.freeze({
+    id: "interior-right-01",
+    label: "Pared interior derecha",
+    position: "8 2.65 -9.22",
+    rotation: "0 180 0",
+    width: 4,
+    height: 2
+  }),
+  Object.freeze({
+    id: "lobby-feature-01",
+    label: "Obra destacada del lobby",
+    position: "6.84 2.55 18.2",
+    rotation: "0 -90 0",
+    width: 2.8,
+    height: 2
   })
 ]);

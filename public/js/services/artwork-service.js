@@ -8,6 +8,24 @@ import {
 const VIDEO_BUCKET = "artwork-videos";
 const THUMBNAIL_BUCKET = "artwork-thumbnails";
 const MAX_VIDEO_SIZE = 45 * 1024 * 1024;
+export const MAX_ARTWORKS = 13;
+
+const ARTWORK_COLUMNS = [
+  "id",
+  "title",
+  "author",
+  "description",
+  "video_path",
+  "video_url",
+  "video_size_bytes",
+  "original_size_bytes",
+  "thumbnail_path",
+  "thumbnail_url",
+  "slot_id",
+  "is_active",
+  "created_at",
+  "updated_at"
+].join(", ");
 
 function createAssetPath(artworkId, extension) {
   return `artworks/${artworkId}/${crypto.randomUUID()}.${extension}`;
@@ -50,28 +68,85 @@ export function validateVideoFile(videoFile, isRequired) {
     return;
   }
 
-  if (videoFile.type !== "video/mp4") {
-    throw new Error("Solo se permiten archivos MP4.");
+  if (
+    videoFile.type !== "video/mp4" ||
+    !videoFile.name.toLowerCase().endsWith(".mp4")
+  ) {
+    throw new Error("El video optimizado debe estar en formato MP4.");
   }
 
   if (videoFile.size > MAX_VIDEO_SIZE) {
-    throw new Error("El video no puede superar 45 MB.");
+    throw new Error("El resultado optimizado no puede superar 45 MB.");
   }
 }
 
-export async function fetchArtworks(client) {
-  const { data, error } = await client
+async function fetchArtworkRows(client) {
+  const response = await client
+    .from("artworks")
+    .select(ARTWORK_COLUMNS)
+    .order("created_at", { ascending: false });
+
+  if (!response.error) {
+    return response.data || [];
+  }
+
+  const legacyResponse = await client
     .from("artworks")
     .select(
       "id, title, author, description, video_path, video_url, thumbnail_path, thumbnail_url, slot_id, is_active, created_at, updated_at"
     )
     .order("created_at", { ascending: false });
 
-  if (error) {
+  if (legacyResponse.error) {
     throw new Error("No se pudieron cargar las obras.");
   }
 
-  return data || [];
+  return legacyResponse.data || [];
+}
+
+async function resolveStoredSize(client, artwork) {
+  if (Number(artwork.video_size_bytes) > 0) {
+    return artwork;
+  }
+
+  const pathParts = artwork.video_path.split("/");
+  const fileName = pathParts.pop();
+  const directory = pathParts.join("/");
+  const { data } = await client.storage
+    .from(VIDEO_BUCKET)
+    .list(directory, {
+      limit: 10,
+      search: fileName
+    });
+  const storedFile = data?.find((file) => file.name === fileName);
+
+  return {
+    ...artwork,
+    video_size_bytes: Number(storedFile?.metadata?.size) || 0
+  };
+}
+
+export async function fetchArtworks(client) {
+  const artworks = await fetchArtworkRows(client);
+  return Promise.all(
+    artworks.map((artwork) => resolveStoredSize(client, artwork))
+  );
+}
+
+async function ensureArtworkCapacity(client) {
+  const { count, error } = await client
+    .from("artworks")
+    .select("id", { count: "exact", head: true });
+
+  if (error) {
+    throw new Error("No se pudo verificar el espacio disponible.");
+  }
+
+  if ((count || 0) >= MAX_ARTWORKS) {
+    throw new Error(
+      `La galería admite un máximo de ${MAX_ARTWORKS} obras.`
+    );
+  }
 }
 
 async function uploadAssets({
@@ -123,11 +198,13 @@ export async function createArtwork({
   client,
   values,
   videoFile,
+  originalVideoSize,
   thumbnailFile,
   onProgress
 }) {
   const metadata = validateMetadata(values);
   validateVideoFile(videoFile, true);
+  await ensureArtworkCapacity(client);
 
   if (!thumbnailFile) {
     throw new Error("No se pudo generar la miniatura del video.");
@@ -155,6 +232,9 @@ export async function createArtwork({
         description: metadata.description,
         video_path: assets.videoPath,
         video_url: assets.videoUrl,
+        video_size_bytes: videoFile.size,
+        original_size_bytes:
+          Number(originalVideoSize) || videoFile.size,
         thumbnail_path: assets.thumbnailPath,
         thumbnail_url: assets.thumbnailUrl,
         slot_id: values.slotId,
@@ -180,6 +260,7 @@ export async function updateArtwork({
   artwork,
   values,
   videoFile,
+  originalVideoSize,
   thumbnailFile,
   onProgress
 }) {
@@ -214,6 +295,9 @@ export async function updateArtwork({
       Object.assign(changes, {
         video_path: newAssets.videoPath,
         video_url: newAssets.videoUrl,
+        video_size_bytes: videoFile.size,
+        original_size_bytes:
+          Number(originalVideoSize) || videoFile.size,
         thumbnail_path: newAssets.thumbnailPath,
         thumbnail_url: newAssets.thumbnailUrl
       });

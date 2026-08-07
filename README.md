@@ -27,9 +27,11 @@ La administración incluye:
 - un solo administrador autorizado;
 - tabla `artworks` con RLS;
 - buckets públicos para lectura y restringidos para escritura;
-- diez espacios predefinidos, sin modificar la galería actual;
+- trece espacios predefinidos, incluidos los muros interiores y una obra destacada en el lobby;
 - formulario CRUD para crear, editar, activar y eliminar obras;
-- subida de videos MP4 de hasta 45 MB;
+- selección de videos de hasta 150 MB en formatos habituales;
+- compresión local proporcional a MP4 H.264/AAC, con salida máxima de 45 MB;
+- subidas reanudables a Supabase Storage en bloques de 6 MiB;
 - generación local de miniaturas WebP;
 - carga dinámica y diferida de las obras activas.
 
@@ -51,6 +53,11 @@ Los proyectos que todavía utilizan claves legacy pueden configurar
 `SUPABASE_ANON_KEY` en lugar de `SUPABASE_PUBLISHABLE_KEY`. Nunca se
 debe colocar una `service_role` o secret key en `public/` ni en el
 repositorio.
+
+Si el proyecto ya tenía la administración instalada, ejecutar además
+`supabase/migrations/202608060001_expand_gallery_media.sql`. Esta
+migración agrega las tres ubicaciones nuevas, registra las métricas de
+tamaño y fija en 45 MiB el límite final del bucket de videos.
 
 ### 2. Crear el administrador único
 
@@ -132,8 +139,18 @@ npm run check
 ## Videos de las obras
 
 La forma principal de publicar una obra es ingresar en `/admin`, elegir
-una de las diez ubicaciones y subir el MP4. Supabase Storage conserva el
-video y la miniatura generada por el navegador.
+una de las trece ubicaciones y seleccionar un video de hasta 150 MB. El
+navegador mantiene su proporción, limita su lado mayor a 1280 px, reduce
+la frecuencia a un máximo de 30 FPS y genera un MP4 H.264/AAC de hasta
+45 MB antes de subirlo. Supabase Storage conserva solamente el resultado
+optimizado y la miniatura WebP; el archivo original no pasa por Render ni
+se almacena en la base de datos.
+
+La compresión utiliza un motor FFmpeg WebAssembly cargado únicamente al
+seleccionar un video. El proceso puede tardar varios minutos según la
+duración del archivo y la potencia del equipo administrativo. Si un MP4
+ya pesa 45 MB o menos y recomprimirlo no reduce el tamaño, se conserva el
+original para no perder calidad ni aumentar el consumo.
 
 Como alternativa local sin Supabase:
 
@@ -179,7 +196,7 @@ está activo, porque actualmente no se necesita una base de datos.
   reutilizable para videos e imágenes en primer plano.
 - `public/js/admin`: controladores de las pantallas administrativas.
 - `public/js/services`: cliente y autenticación de Supabase.
-- `public/js/config/gallery-slots.js`: diez ubicaciones usadas por las
+- `public/js/config/gallery-slots.js`: trece ubicaciones usadas por las
   obras dinámicas.
 - `public/assets`: recursos visuales optimizados.
 - `supabase/migrations`: esquema, RLS y políticas de Storage.

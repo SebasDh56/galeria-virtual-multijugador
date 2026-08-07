@@ -1,60 +1,587 @@
-import { getCurrentAdmin, observeAdminSession, signOutAdmin } from "../services/auth-service.js";
+import {
+  getCurrentAdmin,
+  observeAdminSession,
+  signOutAdmin
+} from "../services/auth-service.js";
 import { GALLERY_SLOTS } from "../config/gallery-slots.js";
-import { createArtwork, deleteArtwork, fetchArtworks, updateArtwork, validateVideoFile } from "../services/artwork-service.js";
+import {
+  MAX_ARTWORKS,
+  createArtwork,
+  deleteArtwork,
+  fetchArtworks,
+  updateArtwork,
+  validateVideoFile
+} from "../services/artwork-service.js";
 import { generateThumbnail } from "./thumbnail-generator.js";
+import {
+  calculateSavings,
+  formatFileSize,
+  optimizeVideo,
+  validateSourceVideo
+} from "./video-optimizer.js";
 
 const page = document.body;
-const status = document.querySelector("#admin-status");
+const statusMessage = document.querySelector("#admin-status");
 const form = document.querySelector("#artwork-form");
-const fields = {
-  title: document.querySelector("#artwork-title"), author: document.querySelector("#artwork-author"),
-  description: document.querySelector("#artwork-description"), slot: document.querySelector("#artwork-slot"),
-  video: document.querySelector("#artwork-video"), active: document.querySelector("#artwork-active")
-};
-const preview = document.querySelector("#thumbnail-preview");
-const progress = document.querySelector("#upload-progress");
-const progressLabel = document.querySelector("#upload-progress-label");
-const list = document.querySelector("#artwork-list");
-const count = document.querySelector("#artwork-count");
 const formTitle = document.querySelector("#form-title");
 const submitButton = document.querySelector("#artwork-submit");
 const cancelButton = document.querySelector("#artwork-cancel");
 const logoutButton = document.querySelector("#admin-logout");
-let client; let artworks = []; let editingArtwork; let thumbnailFile; let previewUrl; let isSubmitting; let authSubscription;
+const artworkList = document.querySelector("#artwork-list");
+const artworkCount = document.querySelector("#artwork-count");
+const videoHelp = document.querySelector("#video-help");
+const selectedVideoName = document.querySelector("#selected-video-name");
+const videoDropzone = document.querySelector("#video-dropzone");
+const thumbnailFigure = document.querySelector("#thumbnail-figure");
+const thumbnailPreview = document.querySelector("#thumbnail-preview");
+const optimizerPanel = document.querySelector("#optimizer-panel");
+const optimizerStage = document.querySelector("#optimizer-stage");
+const optimizerPercent = document.querySelector("#optimizer-percent");
+const optimizationProgress = document.querySelector(
+  "#optimization-progress"
+);
+const uploadPanel = document.querySelector("#upload-panel");
+const uploadProgress = document.querySelector("#upload-progress");
+const uploadProgressLabel = document.querySelector(
+  "#upload-progress-label"
+);
+const originalVideoSize = document.querySelector("#original-video-size");
+const optimizedVideoSize = document.querySelector("#optimized-video-size");
+const optimizedVideoSavings = document.querySelector(
+  "#optimized-video-savings"
+);
+const metrics = {
+  total: document.querySelector("#artwork-total"),
+  active: document.querySelector("#active-total"),
+  storage: document.querySelector("#storage-total"),
+  savings: document.querySelector("#savings-total")
+};
+const fields = {
+  title: document.querySelector("#artwork-title"),
+  author: document.querySelector("#artwork-author"),
+  description: document.querySelector("#artwork-description"),
+  slot: document.querySelector("#artwork-slot"),
+  video: document.querySelector("#artwork-video"),
+  active: document.querySelector("#artwork-active")
+};
 
-function setStatus(message = "", type = "") { status.textContent = message; status.dataset.type = type; }
-function setProgress(value) { progress.hidden = false; progress.value = value; progressLabel.textContent = `${Math.round(value * 100)}%`; }
-function resetProgress() { progress.hidden = true; progress.value = 0; progressLabel.textContent = ""; }
-function redirectToLogin() { window.location.replace("/admin/login"); }
-function values() { return { title: fields.title.value, author: fields.author.value, description: fields.description.value, slotId: fields.slot.value, isActive: fields.active.checked }; }
-function updatePreview(file) { if (previewUrl) URL.revokeObjectURL(previewUrl); previewUrl = file ? URL.createObjectURL(file) : null; preview.hidden = !previewUrl; preview.src = previewUrl || ""; }
+let client;
+let artworks = [];
+let editingArtwork = null;
+let preparedVideo = null;
+let thumbnailFile = null;
+let previewUrl = null;
+let isSubmitting = false;
+let isProcessingVideo = false;
+let authSubscription = null;
+
+function setStatus(message = "", type = "") {
+  statusMessage.textContent = message;
+  statusMessage.dataset.type = type;
+}
+
+function redirectToLogin() {
+  window.location.replace("/admin/login");
+}
+
+function getFormValues() {
+  return {
+    title: fields.title.value,
+    author: fields.author.value,
+    description: fields.description.value,
+    slotId: fields.slot.value,
+    isActive: fields.active.checked
+  };
+}
+
+function updatePreview(file) {
+  if (previewUrl) {
+    URL.revokeObjectURL(previewUrl);
+  }
+
+  previewUrl = file ? URL.createObjectURL(file) : null;
+  thumbnailPreview.src = previewUrl || "";
+  thumbnailFigure.hidden = !previewUrl;
+}
+
+function setOptimizationProgress(value, stage) {
+  const normalizedValue = Math.min(1, Math.max(0, value));
+  optimizerPanel.hidden = false;
+  optimizationProgress.value = normalizedValue;
+  optimizerPercent.textContent = `${Math.round(normalizedValue * 100)}%`;
+
+  if (stage) {
+    optimizerStage.textContent = stage;
+  }
+}
+
+function resetOptimization() {
+  optimizerPanel.hidden = true;
+  optimizerPanel.dataset.state = "";
+  optimizationProgress.value = 0;
+  optimizerPercent.textContent = "0%";
+  optimizerStage.textContent = "Preparando video";
+  originalVideoSize.textContent = "—";
+  optimizedVideoSize.textContent = "—";
+  optimizedVideoSavings.textContent = "—";
+}
+
+function setUploadProgress(value) {
+  const normalizedValue = Math.min(1, Math.max(0, value));
+  uploadPanel.hidden = false;
+  uploadProgress.value = normalizedValue;
+  uploadProgressLabel.textContent = `${Math.round(normalizedValue * 100)}%`;
+}
+
+function resetUploadProgress() {
+  uploadPanel.hidden = true;
+  uploadProgress.value = 0;
+  uploadProgressLabel.textContent = "0%";
+}
+
+function updateSubmitAvailability() {
+  const isAtCapacity = !editingArtwork && artworks.length >= MAX_ARTWORKS;
+  submitButton.disabled =
+    isSubmitting || isProcessingVideo || isAtCapacity;
+  submitButton.title = isAtCapacity
+    ? `La galería ya tiene ${MAX_ARTWORKS} obras.`
+    : "";
+}
 
 function renderSlotOptions() {
-  const occupied = new Set(artworks.filter((artwork) => artwork.is_active && artwork.id !== editingArtwork?.id).map((artwork) => artwork.slot_id));
-  fields.slot.replaceChildren(...GALLERY_SLOTS.map((slot) => { const option = new Option(slot.label, slot.id); option.disabled = occupied.has(slot.id); return option; }));
-  if (editingArtwork) fields.slot.value = editingArtwork.slot_id;
-}
-function resetForm() { editingArtwork = null; form.reset(); fields.active.checked = true; thumbnailFile = null; updatePreview(null); resetProgress(); formTitle.textContent = "Añadir obra"; submitButton.textContent = "Guardar obra"; cancelButton.hidden = true; fields.video.required = true; document.querySelector("#video-help").textContent = "Obligatorio al crear. La miniatura se genera en este navegador."; renderSlotOptions(); }
-function action(label, actionName, artwork, secondary = false) { const button = document.createElement("button"); button.type = "button"; button.textContent = label; button.dataset.action = actionName; button.dataset.id = artwork.id; if (secondary) button.className = "admin-button-secondary"; return button; }
-function renderArtworks() {
-  count.textContent = `${artworks.filter((artwork) => artwork.is_active).length} / 10 activas`; list.replaceChildren();
-  if (!artworks.length) { list.textContent = "Aún no hay obras registradas."; return; }
-  artworks.forEach((artwork) => {
-    const card = document.createElement("article"); card.className = "admin-artwork-item";
-    const image = document.createElement("img"); image.src = artwork.thumbnail_url; image.alt = `Miniatura de ${artwork.title}`; image.loading = "lazy";
-    const details = document.createElement("div"); const heading = document.createElement("h3"); heading.textContent = artwork.title;
-    const meta = document.createElement("p"); const slot = GALLERY_SLOTS.find((item) => item.id === artwork.slot_id); meta.textContent = `${artwork.author} · ${slot?.label || artwork.slot_id}`;
-    const state = document.createElement("span"); state.className = artwork.is_active ? "admin-state active" : "admin-state"; state.textContent = artwork.is_active ? "Activa" : "Inactiva"; details.append(heading, meta, state);
-    const actions = document.createElement("div"); actions.className = "admin-item-actions"; actions.append(action("Editar", "edit", artwork, true), action(artwork.is_active ? "Desactivar" : "Activar", "toggle", artwork, true), action("Eliminar", "delete", artwork));
-    card.append(image, details, actions); list.appendChild(card);
+  const occupiedSlots = new Set(
+    artworks
+      .filter(
+        (artwork) =>
+          artwork.is_active && artwork.id !== editingArtwork?.id
+      )
+      .map((artwork) => artwork.slot_id)
+  );
+  const options = GALLERY_SLOTS.map((slot) => {
+    const option = new Option(slot.label, slot.id);
+    option.disabled = occupiedSlots.has(slot.id);
+    return option;
   });
+
+  fields.slot.replaceChildren(...options);
+
+  if (editingArtwork) {
+    fields.slot.value = editingArtwork.slot_id;
+  }
 }
-async function loadArtworks() { artworks = await fetchArtworks(client); renderArtworks(); renderSlotOptions(); }
-async function handleVideoChange() { const videoFile = fields.video.files[0]; thumbnailFile = null; updatePreview(null); if (!videoFile) return; try { validateVideoFile(videoFile, true); setStatus("Generando miniatura local...", "info"); thumbnailFile = await generateThumbnail(videoFile); updatePreview(thumbnailFile); setStatus(""); } catch (error) { fields.video.value = ""; setStatus(error.message); } }
-function beginEdit(artwork) { editingArtwork = artwork; fields.title.value = artwork.title; fields.author.value = artwork.author; fields.description.value = artwork.description || ""; fields.active.checked = artwork.is_active; thumbnailFile = null; updatePreview(null); renderSlotOptions(); formTitle.textContent = "Editar obra"; submitButton.textContent = "Actualizar obra"; cancelButton.hidden = false; fields.video.required = false; document.querySelector("#video-help").textContent = "Déjalo vacío para conservar el video actual."; window.scrollTo({ top: 0, behavior: "smooth" }); }
-async function saveArtwork(event) { event.preventDefault(); if (isSubmitting) return; isSubmitting = true; submitButton.disabled = true; setStatus(""); setProgress(.02); try { const payload = { client, values: values(), videoFile: fields.video.files[0], thumbnailFile, onProgress: setProgress }; if (editingArtwork) await updateArtwork({ ...payload, artwork: editingArtwork }); else await createArtwork(payload); await loadArtworks(); resetForm(); setStatus("Obra guardada correctamente.", "info"); } catch (error) { setStatus(error.message || "No se pudo guardar la obra."); } finally { isSubmitting = false; submitButton.disabled = false; resetProgress(); } }
-async function handleListAction(event) { const button = event.target.closest("button[data-action]"); if (!button || isSubmitting) return; const artwork = artworks.find((item) => item.id === button.dataset.id); if (!artwork) return; if (button.dataset.action === "edit") return beginEdit(artwork); if (button.dataset.action === "delete" && !window.confirm(`¿Eliminar “${artwork.title}” y sus archivos?`)) return; isSubmitting = true; try { if (button.dataset.action === "delete") await deleteArtwork(client, artwork); else await updateArtwork({ client, artwork, values: { title: artwork.title, author: artwork.author, description: artwork.description, slotId: artwork.slot_id, isActive: !artwork.is_active } }); await loadArtworks(); if (editingArtwork?.id === artwork.id) resetForm(); setStatus("Cambios guardados.", "info"); } catch (error) { setStatus(error.message || "No se pudo completar la acción."); } finally { isSubmitting = false; } }
-async function initializeDashboard() { try { const admin = await getCurrentAdmin(); if (!admin) return redirectToLogin(); client = admin.client; document.querySelector("#admin-email-label").textContent = admin.user.email; await loadArtworks(); page.classList.remove("auth-pending"); authSubscription = observeAdminSession(client, redirectToLogin); } catch (error) { setStatus(error.message); page.classList.remove("auth-pending"); } }
-form.addEventListener("submit", saveArtwork); fields.video.addEventListener("change", handleVideoChange); cancelButton.addEventListener("click", resetForm); list.addEventListener("click", handleListAction);
-logoutButton.addEventListener("click", async () => { if (!client) return; logoutButton.disabled = true; try { await signOutAdmin(client); } finally { redirectToLogin(); } });
-window.addEventListener("pagehide", () => { authSubscription?.unsubscribe(); if (previewUrl) URL.revokeObjectURL(previewUrl); }); initializeDashboard();
+
+function renderMetrics() {
+  const activeArtworks = artworks.filter(
+    (artwork) => artwork.is_active
+  ).length;
+  const storageBytes = artworks.reduce(
+    (total, artwork) => total + (Number(artwork.video_size_bytes) || 0),
+    0
+  );
+  const savingsBytes = artworks.reduce((total, artwork) => {
+    const originalSize = Number(artwork.original_size_bytes) || 0;
+    const storedSize = Number(artwork.video_size_bytes) || 0;
+    return total + Math.max(0, originalSize - storedSize);
+  }, 0);
+
+  metrics.total.textContent = `${artworks.length} / ${MAX_ARTWORKS}`;
+  metrics.active.textContent = `${activeArtworks} / ${GALLERY_SLOTS.length}`;
+  metrics.storage.textContent = formatFileSize(storageBytes);
+  metrics.savings.textContent = formatFileSize(savingsBytes);
+  artworkCount.textContent = `${activeArtworks} activas · ${artworks.length} registradas`;
+}
+
+function createActionButton(label, actionName, artwork, secondary = false) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = label;
+  button.dataset.action = actionName;
+  button.dataset.id = artwork.id;
+
+  if (secondary) {
+    button.className = "admin-button-secondary";
+  }
+
+  return button;
+}
+
+function createArtworkCard(artwork) {
+  const card = document.createElement("article");
+  const image = document.createElement("img");
+  const details = document.createElement("div");
+  const heading = document.createElement("h3");
+  const metadata = document.createElement("p");
+  const badges = document.createElement("div");
+  const state = document.createElement("span");
+  const fileSize = document.createElement("span");
+  const actions = document.createElement("div");
+  const gallerySlot = GALLERY_SLOTS.find(
+    (slot) => slot.id === artwork.slot_id
+  );
+
+  card.className = "admin-artwork-item";
+  image.src = artwork.thumbnail_url;
+  image.alt = `Miniatura de ${artwork.title}`;
+  image.loading = "lazy";
+  heading.textContent = artwork.title;
+  metadata.textContent = `${artwork.author} · ${
+    gallerySlot?.label || artwork.slot_id
+  }`;
+  badges.className = "admin-item-badges";
+  state.className = artwork.is_active
+    ? "admin-state active"
+    : "admin-state";
+  state.textContent = artwork.is_active ? "Activa" : "Inactiva";
+  fileSize.className = "admin-file-size";
+  fileSize.textContent = formatFileSize(artwork.video_size_bytes);
+  badges.append(state, fileSize);
+  details.append(heading, metadata, badges);
+
+  actions.className = "admin-item-actions";
+  actions.append(
+    createActionButton("Editar", "edit", artwork, true),
+    createActionButton(
+      artwork.is_active ? "Desactivar" : "Activar",
+      "toggle",
+      artwork,
+      true
+    ),
+    createActionButton("Eliminar", "delete", artwork)
+  );
+  card.append(image, details, actions);
+  return card;
+}
+
+function renderArtworks() {
+  renderMetrics();
+  artworkList.replaceChildren();
+
+  if (!artworks.length) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "admin-empty-state";
+    emptyState.textContent =
+      "Aún no hay obras registradas. Publica la primera desde el formulario.";
+    artworkList.appendChild(emptyState);
+  } else {
+    artworkList.append(...artworks.map(createArtworkCard));
+  }
+
+  updateSubmitAvailability();
+}
+
+async function loadArtworks() {
+  artworks = await fetchArtworks(client);
+  renderArtworks();
+  renderSlotOptions();
+}
+
+function resetPreparedMedia() {
+  preparedVideo = null;
+  thumbnailFile = null;
+  updatePreview(null);
+  resetOptimization();
+  selectedVideoName.textContent =
+    "MP4, MOV, WebM, AVI, MKV, MPEG u OGV · máximo 150 MB";
+}
+
+function resetForm() {
+  editingArtwork = null;
+  form.reset();
+  fields.active.checked = true;
+  fields.video.required = true;
+  fields.video.disabled = false;
+  formTitle.textContent = "Añadir obra";
+  submitButton.textContent = "Guardar obra";
+  cancelButton.hidden = true;
+  videoHelp.textContent =
+    "Obligatorio al crear. La optimización se realiza antes de subir.";
+  resetPreparedMedia();
+  resetUploadProgress();
+  renderSlotOptions();
+  updateSubmitAvailability();
+}
+
+function showOptimizationResult(result) {
+  const savings = calculateSavings(
+    result.originalSize,
+    result.optimizedSize
+  );
+
+  originalVideoSize.textContent = formatFileSize(result.originalSize);
+  optimizedVideoSize.textContent = formatFileSize(result.optimizedSize);
+  optimizedVideoSavings.textContent = `${formatFileSize(
+    savings.savedBytes
+  )} (${savings.savedPercent.toFixed(0)}%)`;
+  optimizerPanel.dataset.state = "ready";
+}
+
+async function prepareVideo(sourceVideo) {
+  isProcessingVideo = true;
+  fields.video.disabled = true;
+  updateSubmitAvailability();
+  resetPreparedMedia();
+  selectedVideoName.textContent = sourceVideo.name;
+  originalVideoSize.textContent = formatFileSize(sourceVideo.size);
+  setOptimizationProgress(0.01, "Validando archivo");
+
+  try {
+    validateSourceVideo(sourceVideo, true);
+    preparedVideo = await optimizeVideo(sourceVideo, {
+      onProgress: (value) => setOptimizationProgress(value),
+      onStage: (stage) => setOptimizationProgress(
+        optimizationProgress.value,
+        stage
+      )
+    });
+    validateVideoFile(preparedVideo.file, true);
+    setOptimizationProgress(1, "Generando miniatura");
+    thumbnailFile = await generateThumbnail(preparedVideo.file);
+    updatePreview(thumbnailFile);
+    showOptimizationResult(preparedVideo);
+    optimizerStage.textContent = preparedVideo.wasOptimized
+      ? "Video optimizado y listo"
+      : "El original ya era la opción más ligera";
+    setStatus(
+      "Video preparado localmente. Ya puedes guardar la obra.",
+      "success"
+    );
+  } catch (error) {
+    try {
+      validateVideoFile(sourceVideo, true);
+      preparedVideo = {
+        file: sourceVideo,
+        originalSize: sourceVideo.size,
+        optimizedSize: sourceVideo.size,
+        wasOptimized: false
+      };
+      thumbnailFile = await generateThumbnail(sourceVideo);
+      updatePreview(thumbnailFile);
+      setOptimizationProgress(1, "Se conservará el MP4 original");
+      showOptimizationResult(preparedVideo);
+      setStatus(
+        `No se pudo comprimir, pero el MP4 ya cumple el límite de 45 MB. ${error.message}`,
+        "warning"
+      );
+    } catch (fallbackError) {
+      fields.video.value = "";
+      resetPreparedMedia();
+      setStatus(error.message || fallbackError.message);
+    }
+  } finally {
+    isProcessingVideo = false;
+    fields.video.disabled = false;
+    updateSubmitAvailability();
+  }
+}
+
+async function handleVideoChange() {
+  const sourceVideo = fields.video.files[0];
+
+  if (!sourceVideo) {
+    resetPreparedMedia();
+    return;
+  }
+
+  await prepareVideo(sourceVideo);
+}
+
+function beginEdit(artwork) {
+  editingArtwork = artwork;
+  fields.title.value = artwork.title;
+  fields.author.value = artwork.author;
+  fields.description.value = artwork.description || "";
+  fields.active.checked = artwork.is_active;
+  fields.video.required = false;
+  formTitle.textContent = "Editar obra";
+  submitButton.textContent = "Actualizar obra";
+  cancelButton.hidden = false;
+  videoHelp.textContent =
+    "Déjalo vacío para conservar el video y la miniatura actuales.";
+  resetPreparedMedia();
+  renderSlotOptions();
+  updateSubmitAvailability();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function saveArtwork(event) {
+  event.preventDefault();
+
+  if (isSubmitting || isProcessingVideo) {
+    return;
+  }
+
+  if (!editingArtwork && !preparedVideo) {
+    setStatus("Espera a que termine la optimización del video.");
+    return;
+  }
+
+  isSubmitting = true;
+  updateSubmitAvailability();
+  setStatus("");
+  setUploadProgress(0.01);
+
+  try {
+    const payload = {
+      client,
+      values: getFormValues(),
+      videoFile: preparedVideo?.file,
+      originalVideoSize: preparedVideo?.originalSize,
+      thumbnailFile,
+      onProgress: setUploadProgress
+    };
+
+    if (editingArtwork) {
+      await updateArtwork({ ...payload, artwork: editingArtwork });
+    } else {
+      await createArtwork(payload);
+    }
+
+    await loadArtworks();
+    resetForm();
+    setStatus("Obra guardada correctamente.", "success");
+  } catch (error) {
+    setStatus(error.message || "No se pudo guardar la obra.");
+  } finally {
+    isSubmitting = false;
+    resetUploadProgress();
+    updateSubmitAvailability();
+  }
+}
+
+async function handleListAction(event) {
+  const button = event.target.closest("button[data-action]");
+
+  if (!button || isSubmitting) {
+    return;
+  }
+
+  const artwork = artworks.find(
+    (item) => item.id === button.dataset.id
+  );
+
+  if (!artwork) {
+    return;
+  }
+
+  if (button.dataset.action === "edit") {
+    beginEdit(artwork);
+    return;
+  }
+
+  if (
+    button.dataset.action === "delete" &&
+    !window.confirm(`¿Eliminar “${artwork.title}” y sus archivos?`)
+  ) {
+    return;
+  }
+
+  isSubmitting = true;
+  updateSubmitAvailability();
+
+  try {
+    if (button.dataset.action === "delete") {
+      await deleteArtwork(client, artwork);
+    } else {
+      await updateArtwork({
+        client,
+        artwork,
+        values: {
+          title: artwork.title,
+          author: artwork.author,
+          description: artwork.description,
+          slotId: artwork.slot_id,
+          isActive: !artwork.is_active
+        }
+      });
+    }
+
+    await loadArtworks();
+
+    if (editingArtwork?.id === artwork.id) {
+      resetForm();
+    }
+
+    setStatus("Cambios guardados.", "success");
+  } catch (error) {
+    setStatus(error.message || "No se pudo completar la acción.");
+  } finally {
+    isSubmitting = false;
+    updateSubmitAvailability();
+  }
+}
+
+function handleDroppedVideo(event) {
+  event.preventDefault();
+  videoDropzone.classList.remove("is-dragging");
+  const droppedFile = event.dataTransfer?.files?.[0];
+
+  if (!droppedFile) {
+    return;
+  }
+
+  try {
+    const transfer = new DataTransfer();
+    transfer.items.add(droppedFile);
+    fields.video.files = transfer.files;
+    fields.video.dispatchEvent(new Event("change"));
+  } catch (error) {
+    setStatus("Selecciona el archivo con el botón del navegador.");
+  }
+}
+
+async function initializeDashboard() {
+  try {
+    const admin = await getCurrentAdmin();
+
+    if (!admin) {
+      redirectToLogin();
+      return;
+    }
+
+    client = admin.client;
+    document.querySelector("#admin-email-label").textContent =
+      admin.user.email;
+    await loadArtworks();
+    resetForm();
+    page.classList.remove("auth-pending");
+    authSubscription = observeAdminSession(client, redirectToLogin);
+  } catch (error) {
+    setStatus(error.message);
+    page.classList.remove("auth-pending");
+  }
+}
+
+form.addEventListener("submit", saveArtwork);
+fields.video.addEventListener("change", handleVideoChange);
+cancelButton.addEventListener("click", resetForm);
+artworkList.addEventListener("click", handleListAction);
+videoDropzone.addEventListener("dragover", (event) => {
+  event.preventDefault();
+  videoDropzone.classList.add("is-dragging");
+});
+videoDropzone.addEventListener("dragleave", () => {
+  videoDropzone.classList.remove("is-dragging");
+});
+videoDropzone.addEventListener("drop", handleDroppedVideo);
+logoutButton.addEventListener("click", async () => {
+  if (!client) {
+    return;
+  }
+
+  logoutButton.disabled = true;
+
+  try {
+    await signOutAdmin(client);
+  } finally {
+    redirectToLogin();
+  }
+});
+window.addEventListener("pagehide", () => {
+  authSubscription?.unsubscribe();
+
+  if (previewUrl) {
+    URL.revokeObjectURL(previewUrl);
+  }
+});
+
+initializeDashboard();

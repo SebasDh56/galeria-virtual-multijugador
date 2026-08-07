@@ -208,6 +208,14 @@ test("las zonas aíslan tráfico y conservan visibilidad cercana", async (t) => 
   );
 
   lobby.clearEvents();
+  corridor.emit("player:action", { action: "wave" });
+  const wave = await lobby.waitFor(
+    "player:action",
+    (action) => action.id === corridor.id
+  );
+  assert.equal(wave.action, "wave");
+
+  lobby.clearEvents();
   mainRoom.clearEvents();
   corridor.emit("player:move", {
     position: { x: 0, y: 0.12, z: -7 },

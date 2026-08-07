@@ -40,6 +40,8 @@ create table public.artworks (
   description varchar(500),
   video_path text not null,
   video_url text not null,
+  video_size_bytes bigint,
+  original_size_bytes bigint,
   thumbnail_path text not null,
   thumbnail_url text not null,
   slot_id text not null,
@@ -78,8 +80,17 @@ create table public.artworks (
       'front-03',
       'front-04',
       'left-wall-01',
-      'right-wall-01'
+      'right-wall-01',
+      'interior-left-01',
+      'interior-right-01',
+      'lobby-feature-01'
     )
+  ),
+  constraint artworks_video_size_check check (
+    video_size_bytes is null or video_size_bytes >= 0
+  ),
+  constraint artworks_original_size_check check (
+    original_size_bytes is null or original_size_bytes >= 0
   )
 );
 

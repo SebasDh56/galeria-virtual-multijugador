@@ -10,5 +10,6 @@ window.GALLERY_ARTWORK_MEDIA = Object.freeze({
   "left-wall-01": "",
   "right-wall-01": "",
   "interior-left-01": "",
-  "interior-right-01": ""
+  "interior-right-01": "",
+  "lobby-feature-01": ""
 });

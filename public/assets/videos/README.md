@@ -25,6 +25,7 @@ Las obras disponibles son:
 - `right-wall-01`
 - `interior-left-01`
 - `interior-right-01`
+- `lobby-feature-01`
 
 Los videos no se descargan al abrir la galería. Cada archivo se crea y
 reproduce únicamente cuando el visitante interactúa con su obra.

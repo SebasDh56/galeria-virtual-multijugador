@@ -123,6 +123,14 @@
       width: 4,
       height: 2,
       color: "#486e85"
+    },
+    {
+      id: "lobby-feature-01",
+      position: "6.84 2.55 18.2",
+      rotation: "0 -90 0",
+      width: 2.8,
+      height: 2,
+      color: "#8b3f4c"
     }
   ];
 
