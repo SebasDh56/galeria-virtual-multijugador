@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: galeria-virtual-multijugador
+    name: VirtualGalleryUDLA
     runtime: node
     plan: free
     buildCommand: npm ci --omit=dev
