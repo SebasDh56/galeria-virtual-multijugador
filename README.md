@@ -30,8 +30,8 @@ La administración incluye:
 - trece espacios predefinidos, incluidos los muros interiores y una obra destacada en el lobby;
 - formulario CRUD para crear, editar, activar y eliminar obras;
 - asignación automática y estable de cada obra al primer espacio libre;
-- selección de videos de hasta 150 MB en formatos habituales;
-- compresión local proporcional a MP4 H.264/AAC, con salida máxima de 45 MB;
+- selección de videos MP4 de hasta 45 MB;
+- validación local del formato y tamaño antes de iniciar la subida;
 - subidas reanudables a Supabase Storage en bloques de 6 MiB;
 - generación local de miniaturas WebP;
 - carga dinámica y diferida de las obras activas.
@@ -143,26 +143,17 @@ npm run check
 ## Videos de las obras
 
 La forma principal de publicar una obra es ingresar en `/admin` y
-seleccionar un video de hasta 150 MB. La aplicación lo asigna al primer
-espacio libre como `Obra 1` hasta `Obra 13`, sin pedir una ubicación. El
-navegador mantiene su proporción, limita su lado mayor a 1280 px, reduce
-la frecuencia a un máximo de 30 FPS y genera un MP4 H.264/AAC de hasta
-45 MB antes de subirlo. Supabase Storage conserva solamente el resultado
-optimizado y la miniatura WebP; el archivo original no pasa por Render ni
-se almacena en la base de datos.
+seleccionar un MP4 de hasta 45 MB. La aplicación lo asigna al primer
+espacio libre como `Obra 1` hasta `Obra 13`, sin pedir una ubicación.
+El navegador valida el archivo, genera una miniatura WebP y lo envía
+directamente a Supabase Storage sin pasar por Render.
 
-La compresión utiliza FFmpeg WebAssembly autoalojado y se ejecuta en un
-Web Worker, por lo que el trabajo pesado no bloquea la interfaz. Sus
-archivos se cargan únicamente al seleccionar un video y el procesamiento
-se realiza en una sola pasada. El panel permite cancelar una operación y
-aplica tiempos límite para evitar procesos detenidos. Un MP4 de hasta
-12 MiB se usa directamente; para los demás, si el resultado comprimido no
-reduce el tamaño y el original cumple el límite final, se conserva el
-original para evitar una pérdida innecesaria de calidad.
-
-El tiempo depende de la duración del video y de la potencia del equipo
-administrativo. El motor también incluye una detección alternativa de
-duración para archivos WebM o MOV cuyo metadato no puede leer FFprobe.
+Los archivos mayores deben comprimirse previamente con
+[HandBrake](https://handbrake.fr/downloads.php), una
+aplicación gratuita y open source para Windows, macOS y Linux. Se
+recomienda el preset `General > Fast 720p30`, formato MP4, video H.264,
+audio AAC y la opción `Web Optimised`. Antes de subirlo, confirma que el
+resultado final pese 45 MB o menos.
 
 Como alternativa local sin Supabase:
 

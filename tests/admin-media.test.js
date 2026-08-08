@@ -18,6 +18,7 @@ function loadVideoOptimizer() {
       VIDEO_LIMITS,
       calculateSavings,
       formatFileSize,
+      optimizeVideo,
       validateSourceVideo
     };`;
   const context = {};
@@ -54,28 +55,28 @@ function loadSlotAllocator(slots) {
   return context.__result;
 }
 
-test("acepta fuentes de video de hasta 150 MiB", () => {
+test("acepta videos MP4 de hasta 45 MiB", () => {
   const { VIDEO_LIMITS, validateSourceVideo } = loadVideoOptimizer();
   const file = {
-    name: "obra-final.mov",
-    type: "video/quicktime",
-    size: 150 * 1024 * 1024
+    name: "obra-final.mp4",
+    type: "video/mp4",
+    size: 45 * 1024 * 1024
   };
 
   assert.doesNotThrow(() => validateSourceVideo(file));
   assert.equal(VIDEO_LIMITS.maxSourceSize, file.size);
 });
 
-test("rechaza archivos que exceden 150 MiB o no son video", () => {
+test("rechaza archivos que exceden 45 MiB o no son MP4", () => {
   const { validateSourceVideo } = loadVideoOptimizer();
 
   assert.throws(
     () => validateSourceVideo({
       name: "obra.mp4",
       type: "video/mp4",
-      size: 150 * 1024 * 1024 + 1
+      size: 45 * 1024 * 1024 + 1
     }),
-    /150 MB/
+    /45 MB/
   );
   assert.throws(
     () => validateSourceVideo({
@@ -83,7 +84,15 @@ test("rechaza archivos que exceden 150 MiB o no son video", () => {
       type: "application/pdf",
       size: 1024
     }),
-    /Usa un video/
+    /Usa un video MP4/
+  );
+  assert.throws(
+    () => validateSourceVideo({
+      name: "obra.mov",
+      type: "video/quicktime",
+      size: 20 * 1024 * 1024
+    }),
+    /Usa un video MP4/
   );
 });
 
@@ -158,39 +167,26 @@ test("el panel incluye controles y métricas de optimización", () => {
   assert.doesNotMatch(dashboard, /id="artwork-slot"/);
 });
 
-test("el optimizador usa un worker FFmpeg local y no una CDN", () => {
+test("el administrador no carga motores de compresión", () => {
   const optimizer = readPublicFile("js/admin/video-optimizer.js");
   const vendorRoot = path.join(__dirname, "../public/vendor/ffmpeg");
-  const requiredFiles = [
-    "ffmpeg/index.js",
-    "ffmpeg/classes.js",
-    "ffmpeg/worker.js",
-    "core/ffmpeg-core.js",
-    "core/ffmpeg-core.wasm"
-  ];
 
-  for (const relativePath of requiredFiles) {
-    assert.equal(
-      fs.existsSync(path.join(vendorRoot, relativePath)),
-      true,
-      `Falta ${relativePath}`
-    );
-  }
-
-  assert.match(optimizer, /\/vendor\/ffmpeg\/ffmpeg\/index\.js/);
-  assert.match(optimizer, /TRANSCODE_TIMEOUT_MS/);
-  assert.doesNotMatch(optimizer, /unpkg\.com|cdn\.jsdelivr\.net/);
-  assert.ok(
-    fs.statSync(
-      path.join(vendorRoot, "core/ffmpeg-core.wasm")
-    ).size > 30 * 1024 * 1024
-  );
+  assert.equal(fs.existsSync(vendorRoot), false);
+  assert.doesNotMatch(optimizer, /FFmpeg|WebAssembly|\.wasm|unpkg|jsdelivr/);
 });
 
-test("los MP4 pequenos evitan una compresion innecesaria", () => {
-  const { VIDEO_LIMITS } = loadVideoOptimizer();
+test("todo MP4 válido evita la compresión en el navegador", async () => {
+  const { VIDEO_LIMITS, optimizeVideo } = loadVideoOptimizer();
+  const file = {
+    name: "obra.mp4",
+    type: "video/mp4",
+    size: 45 * 1024 * 1024
+  };
+  const result = await optimizeVideo(file);
 
-  assert.equal(VIDEO_LIMITS.passthroughSize, 12 * 1024 * 1024);
+  assert.equal(VIDEO_LIMITS.passthroughSize, 45 * 1024 * 1024);
+  assert.equal(result.file, file);
+  assert.equal(result.wasOptimized, false);
 });
 
 test("la miniatura no puede bloquear indefinidamente la subida", () => {

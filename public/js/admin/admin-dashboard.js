@@ -15,7 +15,6 @@ import {
 import { generateThumbnail } from "./thumbnail-generator.js";
 import {
   cancelVideoOptimization,
-  calculateSavings,
   formatFileSize,
   optimizeVideo,
   validateSourceVideo
@@ -299,7 +298,7 @@ function resetPreparedMedia() {
   updatePreview(null);
   resetOptimization();
   selectedVideoName.textContent =
-    "MP4, MOV, WebM, AVI, MKV, MPEG u OGV · máximo 150 MB";
+    "MP4 comprimido previamente · máximo 45 MB";
 }
 
 function resetForm() {
@@ -312,7 +311,7 @@ function resetForm() {
   submitButton.textContent = "Guardar obra";
   cancelButton.hidden = true;
   videoHelp.textContent =
-    "Obligatorio al crear. La optimización se realiza antes de subir.";
+    "Obligatorio al crear. Comprímelo antes con HandBrake si supera 45 MB.";
   resetPreparedMedia();
   resetUploadProgress();
   updateAutomaticSlotLabel();
@@ -320,16 +319,9 @@ function resetForm() {
 }
 
 function showOptimizationResult(result) {
-  const savings = calculateSavings(
-    result.originalSize,
-    result.optimizedSize
-  );
-
   originalVideoSize.textContent = formatFileSize(result.originalSize);
-  optimizedVideoSize.textContent = formatFileSize(result.optimizedSize);
-  optimizedVideoSavings.textContent = `${formatFileSize(
-    savings.savedBytes
-  )} (${savings.savedPercent.toFixed(0)}%)`;
+  optimizedVideoSize.textContent = "45.0 MB";
+  optimizedVideoSavings.textContent = "Aprobado";
   optimizerPanel.dataset.state = "ready";
 }
 
@@ -340,8 +332,8 @@ async function prepareVideo(sourceVideo) {
   resetPreparedMedia();
   selectedVideoName.textContent = sourceVideo.name;
   originalVideoSize.textContent = formatFileSize(sourceVideo.size);
-  setOptimizationProgress(0.01, "Validando archivo");
-  optimizationCancelButton.hidden = false;
+  setOptimizationProgress(0.01, "Validando MP4");
+  optimizationCancelButton.hidden = true;
   optimizationCancelButton.disabled = false;
 
   try {
@@ -361,11 +353,11 @@ async function prepareVideo(sourceVideo) {
     setOptimizationProgress(
       1,
       preparedVideo.wasOptimized
-        ? "Video optimizado y listo"
-        : "El original ya era la opción más ligera"
+        ? "Video preparado y listo"
+        : "MP4 validado y listo para subir"
     );
     setStatus(
-      "Video preparado localmente. Ya puedes guardar la obra.",
+      "MP4 validado. Ya puedes guardar y subir la obra.",
       "success"
     );
   } catch (error) {
@@ -444,7 +436,7 @@ async function saveArtwork(event) {
   }
 
   if (!editingArtwork && !preparedVideo) {
-    setStatus("Espera a que termine la optimización del video.");
+    setStatus("Espera a que termine la validación del video.");
     return;
   }
 

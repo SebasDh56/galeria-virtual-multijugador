@@ -155,6 +155,11 @@ h2 {
   line-height: 1.65;
 }
 
+.admin-description a {
+  color: var(--admin-gold);
+  font-weight: 700;
+}
+
 .admin-button-secondary {
   border-color: var(--admin-border-strong);
   background: rgba(255, 255, 255, 0.06);

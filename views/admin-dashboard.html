@@ -44,7 +44,7 @@
         <p class="admin-eyebrow">Curaduría digital</p>
         <h1 id="admin-title">Administra la experiencia audiovisual</h1>
         <p>
-          Publica, optimiza y organiza las obras que los visitantes descubrirán dentro de la galería 3D.
+          Publica y organiza las obras que los visitantes descubrirán dentro de la galería 3D.
         </p>
       </div>
 
@@ -75,11 +75,13 @@
             <p class="admin-eyebrow">Nueva publicación</p>
             <h2 id="form-title">Añadir obra</h2>
           </div>
-          <span class="admin-capacity-badge">Hasta 150 MB</span>
+          <span class="admin-capacity-badge">MP4 · hasta 45 MB</span>
         </header>
 
         <p class="admin-description">
-          El video se comprime en esta computadora, se normaliza a MP4 y solo después se envía a Storage.
+          Sube un MP4 de hasta 45 MB. Si el archivo pesa más, comprímelo gratuitamente con
+          <a href="https://handbrake.fr/downloads.php" target="_blank" rel="noopener noreferrer">HandBrake</a>
+          antes de seleccionarlo.
         </p>
 
         <form id="artwork-form" class="admin-artwork-form">
@@ -113,12 +115,12 @@
             <span class="admin-field-label">Archivo audiovisual</span>
             <label id="video-dropzone" class="admin-dropzone" for="artwork-video">
               <input id="artwork-video" name="video" type="file"
-                accept="video/mp4,video/quicktime,video/webm,video/x-msvideo,video/x-matroska,video/mpeg,video/ogg,.m4v,.mkv,.avi">
+                accept="video/mp4,.mp4">
               <span class="admin-dropzone__icon" aria-hidden="true">↑</span>
               <strong>Arrastra el video o selecciónalo</strong>
-              <span id="selected-video-name">MP4, MOV, WebM, AVI, MKV, MPEG u OGV · máximo 150 MB</span>
+              <span id="selected-video-name">MP4 comprimido previamente · máximo 45 MB</span>
             </label>
-            <small id="video-help">Obligatorio al crear. La optimización se realiza antes de subir.</small>
+            <small id="video-help">Obligatorio al crear. Usa HandBrake antes de subirlo si supera 45 MB.</small>
           </div>
 
           <section id="optimizer-panel" class="admin-optimizer" aria-live="polite" hidden>
@@ -126,7 +128,7 @@
               <div>
                 <span class="admin-optimizer__icon" aria-hidden="true">✦</span>
                 <div>
-                  <strong>Optimización local</strong>
+                  <strong>Preparación del video</strong>
                   <span id="optimizer-stage">Preparando video</span>
                 </div>
               </div>
@@ -139,9 +141,9 @@
             </div>
             <progress id="optimization-progress" max="1" value="0"></progress>
             <div class="admin-optimizer__stats">
-              <span>Original <strong id="original-video-size">—</strong></span>
-              <span>Optimizado <strong id="optimized-video-size">—</strong></span>
-              <span>Ahorro <strong id="optimized-video-savings">—</strong></span>
+              <span>Tamaño <strong id="original-video-size">—</strong></span>
+              <span>Límite <strong id="optimized-video-size">—</strong></span>
+              <span>Estado <strong id="optimized-video-savings">—</strong></span>
             </div>
           </section>
 
@@ -178,16 +180,16 @@
       </article>
 
       <aside class="admin-card admin-guide-card">
-        <p class="admin-eyebrow">Perfil optimizado</p>
-        <h2>Calidad preparada para web</h2>
+        <p class="admin-eyebrow">Formato recomendado</p>
+        <h2>Prepara el video antes de subirlo</h2>
         <ul class="admin-guide-list">
-          <li><span>01</span><div><strong>Resolución proporcional</strong><p>Máximo 1280 px, sin deformar ni ampliar videos pequeños.</p></div></li>
-          <li><span>02</span><div><strong>Compatibilidad amplia</strong><p>Salida MP4 H.264 con audio AAC para PC y móvil.</p></div></li>
-          <li><span>03</span><div><strong>Carga eficiente</strong><p>El resultado no supera 45 MB y se sube en bloques recuperables.</p></div></li>
+          <li><span>01</span><div><strong>Preset de HandBrake</strong><p>Selecciona General → Fast 720p30 para reducir más el archivo.</p></div></li>
+          <li><span>02</span><div><strong>Compatibilidad amplia</strong><p>Usa formato MP4, video H.264 y audio AAC.</p></div></li>
+          <li><span>03</span><div><strong>Carga eficiente</strong><p>Confirma que el MP4 final no supere 45 MB antes de seleccionarlo.</p></div></li>
         </ul>
         <div class="admin-storage-note">
           <span aria-hidden="true">◎</span>
-          <p><strong>El archivo original nunca llega a Render.</strong> Todo el procesamiento ocurre en este dispositivo.</p>
+          <p><strong>El archivo nunca pasa por Render.</strong> El MP4 validado se envía directamente a Supabase Storage.</p>
         </div>
       </aside>
     </section>
