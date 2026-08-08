@@ -148,7 +148,8 @@ test("el panel incluye controles y métricas de optimización", () => {
     "storage-total",
     "savings-total",
     "video-dropzone",
-    "optimizer-cancel"
+    "optimizer-cancel",
+    "artwork-submit-help"
   ]) {
     assert.match(dashboard, new RegExp(`id="${elementId}"`));
   }
@@ -190,4 +191,20 @@ test("los MP4 pequenos evitan una compresion innecesaria", () => {
   const { VIDEO_LIMITS } = loadVideoOptimizer();
 
   assert.equal(VIDEO_LIMITS.passthroughSize, 12 * 1024 * 1024);
+});
+
+test("la miniatura no puede bloquear indefinidamente la subida", () => {
+  const thumbnailGenerator = readPublicFile(
+    "js/admin/thumbnail-generator.js"
+  );
+  const dashboard = readPublicFile("js/admin/admin-dashboard.js");
+
+  assert.match(thumbnailGenerator, /METADATA_TIMEOUT_MS = 15000/);
+  assert.match(thumbnailGenerator, /SEEK_TIMEOUT_MS = 10000/);
+  assert.match(thumbnailGenerator, /video\.load\(\)/);
+  assert.match(dashboard, /value \* 0\.9/);
+  assert.match(
+    dashboard,
+    /setOptimizationProgress\(0\.94, "Generando miniatura"\)/
+  );
 });

@@ -26,6 +26,7 @@ const statusMessage = document.querySelector("#admin-status");
 const form = document.querySelector("#artwork-form");
 const formTitle = document.querySelector("#form-title");
 const submitButton = document.querySelector("#artwork-submit");
+const submitHelp = document.querySelector("#artwork-submit-help");
 const cancelButton = document.querySelector("#artwork-cancel");
 const logoutButton = document.querySelector("#admin-logout");
 const artworkList = document.querySelector("#artwork-list");
@@ -153,6 +154,19 @@ function updateSubmitAvailability() {
   submitButton.title = isAtCapacity
     ? `La galería ya tiene ${MAX_ARTWORKS} obras.`
     : "";
+
+  if (isAtCapacity) {
+    submitHelp.textContent =
+      `La galería está completa (${MAX_ARTWORKS}/${MAX_ARTWORKS}). Edita o elimina una obra para liberar un espacio.`;
+  } else if (isProcessingVideo) {
+    submitHelp.textContent =
+      "Espera mientras terminamos de preparar el video.";
+  } else if (preparedVideo) {
+    submitHelp.textContent =
+      "Video listo. Ya puedes guardar y subir la obra.";
+  } else {
+    submitHelp.textContent = "";
+  }
 }
 
 function getSlotLabel(slotId) {
@@ -333,20 +347,23 @@ async function prepareVideo(sourceVideo) {
   try {
     validateSourceVideo(sourceVideo, true);
     preparedVideo = await optimizeVideo(sourceVideo, {
-      onProgress: (value) => setOptimizationProgress(value),
+      onProgress: (value) => setOptimizationProgress(value * 0.9),
       onStage: (stage) => setOptimizationProgress(
         optimizationProgress.value,
         stage
       )
     });
     validateVideoFile(preparedVideo.file, true);
-    setOptimizationProgress(1, "Generando miniatura");
+    setOptimizationProgress(0.94, "Generando miniatura");
     thumbnailFile = await generateThumbnail(preparedVideo.file);
     updatePreview(thumbnailFile);
     showOptimizationResult(preparedVideo);
-    optimizerStage.textContent = preparedVideo.wasOptimized
-      ? "Video optimizado y listo"
-      : "El original ya era la opción más ligera";
+    setOptimizationProgress(
+      1,
+      preparedVideo.wasOptimized
+        ? "Video optimizado y listo"
+        : "El original ya era la opción más ligera"
+    );
     setStatus(
       "Video preparado localmente. Ya puedes guardar la obra.",
       "success"
@@ -367,6 +384,7 @@ async function prepareVideo(sourceVideo) {
         optimizedSize: sourceVideo.size,
         wasOptimized: false
       };
+      setOptimizationProgress(0.94, "Generando miniatura");
       thumbnailFile = await generateThumbnail(sourceVideo);
       updatePreview(thumbnailFile);
       setOptimizationProgress(1, "Se conservará el MP4 original");

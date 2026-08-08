@@ -561,6 +561,13 @@ h2 {
   font-size: 0.72rem;
 }
 
+.admin-submit-help {
+  display: block;
+  min-height: 1.25rem;
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+}
+
 .admin-optimizer__heading div div {
   display: grid;
   gap: 3px;
