@@ -62,8 +62,8 @@
           <strong id="storage-total">0 MB</strong>
         </article>
         <article>
-          <span>Espacio ahorrado</span>
-          <strong id="savings-total">0 MB</strong>
+          <span>Límite por video</span>
+          <strong id="savings-total">45 MB</strong>
         </article>
       </div>
     </section>
@@ -161,12 +161,19 @@
           </label>
 
           <section id="upload-panel" class="admin-upload-progress" hidden>
-            <div>
-              <strong>Subiendo a Supabase Storage</strong>
+            <div class="admin-upload-progress__heading">
+              <div>
+                <strong id="upload-stage">Subiendo video</strong>
+                <small id="upload-detail">Conexión segura con Supabase Storage</small>
+              </div>
               <span id="upload-progress-label">0%</span>
             </div>
             <progress id="upload-progress" max="1" value="0"></progress>
-            <small>La subida continúa por partes si la conexión se vuelve inestable.</small>
+            <div class="admin-upload-progress__steps" aria-hidden="true">
+              <span>1. Video</span>
+              <span>2. Miniatura</span>
+              <span>3. Publicación</span>
+            </div>
           </section>
 
           <div class="admin-form-actions">

@@ -45,6 +45,29 @@ function loadUploadConfiguration() {
   return context.__result;
 }
 
+function loadStorageInternals(fetchImplementation) {
+  const source = `${readPublicFile("js/services/storage-service.js")
+    .replace(/import[\s\S]*?;\s*/, "")
+    .replaceAll("export ", "")}
+    globalThis.__result = {
+      createStorageError,
+      getResponseError,
+      uploadChunk
+    };`;
+  const context = {
+    URL,
+    Response,
+    btoa,
+    fetch: fetchImplementation,
+    window: {
+      setTimeout,
+      clearTimeout
+    }
+  };
+  vm.runInNewContext(source, context);
+  return context.__result;
+}
+
 function loadSlotAllocator(slots) {
   const source = `${readPublicFile("js/services/artwork-service.js")
     .replace(/import[\s\S]*?;\s*/g, "")
@@ -158,7 +181,9 @@ test("el panel incluye controles y métricas de optimización", () => {
     "savings-total",
     "video-dropzone",
     "optimizer-cancel",
-    "artwork-submit-help"
+    "artwork-submit-help",
+    "upload-stage",
+    "upload-detail"
   ]) {
     assert.match(dashboard, new RegExp(`id="${elementId}"`));
   }
@@ -203,4 +228,62 @@ test("la miniatura no puede bloquear indefinidamente la subida", () => {
     dashboard,
     /setOptimizationProgress\(0\.94, "Generando miniatura"\)/
   );
+});
+
+test("la subida muestra errores de Supabase y tiene endpoint alternativo", () => {
+  const storageService = readPublicFile("js/services/storage-service.js");
+
+  assert.match(storageService, /getResponseError/);
+  assert.match(storageService, /Supabase rechazó los permisos/);
+  assert.match(storageService, /El archivo supera el límite global/);
+  assert.match(storageService, /storage\.supabase\.co/);
+  assert.match(storageService, /new URL\(config\.url\)\.origin/);
+  assert.doesNotMatch(
+    storageService,
+    /No se pudo iniciar la subida \(\$\{response\.status\}\)/
+  );
+});
+
+test("un error 403 detiene la subida y explica las políticas", async () => {
+  let requestCount = 0;
+  const { uploadChunk } = loadStorageInternals(async () => {
+    requestCount += 1;
+    return new Response(JSON.stringify({
+      message: "new row violates row-level security policy"
+    }), {
+      status: 403,
+      headers: { "content-type": "application/json" }
+    });
+  });
+
+  await assert.rejects(
+    () => uploadChunk({
+      uploadUrl: "https://project.storage.supabase.co/upload/1",
+      accessToken: "token",
+      chunk: new Blob(["video"]),
+      offset: 0
+    }),
+    (error) => {
+      assert.equal(error.status, 403);
+      assert.match(error.message, /políticas de Storage/);
+      assert.match(error.message, /row-level security policy/);
+      return true;
+    }
+  );
+  assert.equal(requestCount, 1);
+});
+
+test("la migración de reparación restaura buckets y permisos", () => {
+  const migration = fs.readFileSync(
+    path.join(
+      __dirname,
+      "../supabase/migrations/202608070001_repair_storage_upload.sql"
+    ),
+    "utf8"
+  );
+
+  assert.match(migration, /'artwork-videos'/);
+  assert.match(migration, /47185920/);
+  assert.match(migration, /Admin can upload artwork media/);
+  assert.match(migration, /select public\.is_admin\(\)/);
 });

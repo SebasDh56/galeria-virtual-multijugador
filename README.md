@@ -148,6 +148,23 @@ espacio libre como `Obra 1` hasta `Obra 13`, sin pedir una ubicación.
 El navegador valida el archivo, genera una miniatura WebP y lo envía
 directamente a Supabase Storage sin pasar por Render.
 
+Para que las cargas funcionen en el plan gratuito de Supabase:
+
+1. En `Storage > Settings`, configura `Global file size limit` en 50 MB.
+2. El bucket `artwork-videos` debe conservar un límite de 45 MiB y aceptar
+   solamente `video/mp4`.
+3. Ejecuta las migraciones de `supabase/migrations` para instalar las
+   políticas del administrador y los buckets.
+
+La migración `202608070001_repair_storage_upload.sql` vuelve a crear de
+forma segura los buckets y políticas de Storage cuando una instalación
+anterior quedó incompleta.
+
+El dashboard utiliza TUS con bloques de 6 MiB para videos mayores de
+6 MiB. Si el dominio directo de Storage no responde, intenta también el
+endpoint principal del proyecto. Los errores HTTP de Supabase se muestran
+en el panel para distinguir sesión expirada, permisos, formato y límites.
+
 Los archivos mayores deben comprimirse previamente con
 [HandBrake](https://handbrake.fr/downloads.php), una
 aplicación gratuita y open source para Windows, macOS y Linux. Se

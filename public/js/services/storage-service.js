@@ -19,10 +19,70 @@ function wait(milliseconds) {
   });
 }
 
+function normalizeErrorDetail(value) {
+  return String(value || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 220);
+}
+
+function getStorageErrorMessage(status, stage) {
+  const messages = {
+    400: "Supabase rechazó los datos del archivo.",
+    401: "La sesión administrativa expiró. Inicia sesión nuevamente.",
+    403: "Supabase rechazó los permisos. Verifica el usuario administrador y las políticas de Storage.",
+    409: "Existe un conflicto con una subida anterior. Selecciona el archivo nuevamente.",
+    413: "El archivo supera el límite global o el límite del bucket en Supabase.",
+    415: "Storage solo admite videos MP4 en este bucket.",
+    422: "Supabase no pudo procesar los datos de la subida.",
+    429: "Supabase recibió demasiadas solicitudes. Espera unos segundos e intenta nuevamente."
+  };
+
+  return messages[status] ||
+    `Storage falló durante ${stage} (HTTP ${status}).`;
+}
+
+function createStorageError(status, stage, detail = "") {
+  const normalizedDetail = normalizeErrorDetail(detail);
+  const error = new Error(
+    `${getStorageErrorMessage(status, stage)}${
+      normalizedDetail ? ` Detalle: ${normalizedDetail}` : ""
+    }`
+  );
+  error.status = status;
+  error.retryable =
+    status === 408 || status === 409 || status === 429 || status >= 500;
+  return error;
+}
+
+async function getResponseError(response, stage) {
+  let detail = "";
+
+  try {
+    const responseText = await response.text();
+    const payload = responseText ? JSON.parse(responseText) : null;
+    detail =
+      payload?.message ||
+      payload?.error_description ||
+      payload?.error ||
+      responseText;
+  } catch (error) {
+    // Algunos errores de Storage no incluyen un cuerpo legible.
+  }
+
+  return createStorageError(response.status, stage, detail);
+}
+
 async function getAccessToken(client) {
-  const {
-    data: { session }
-  } = await client.auth.getSession();
+  const { data, error } = await client.auth.getSession();
+
+  if (error) {
+    throw new Error(
+      `No se pudo validar la sesión administrativa. ${error.message}`
+    );
+  }
+
+  const session = data?.session;
 
   if (!session?.access_token) {
     throw new Error("La sesión administrativa expiró.");
@@ -79,9 +139,7 @@ async function createResumableUpload({
   });
 
   if (!response.ok) {
-    throw new Error(
-      `No se pudo iniciar la subida (${response.status}).`
-    );
+    throw await getResponseError(response, "el inicio de la subida");
   }
 
   const location = response.headers.get("location");
@@ -94,13 +152,19 @@ async function createResumableUpload({
 }
 
 async function readUploadOffset(uploadUrl, accessToken) {
-  const response = await fetch(uploadUrl, {
-    method: "HEAD",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Tus-Resumable": TUS_VERSION
-    }
-  });
+  let response;
+
+  try {
+    response = await fetch(uploadUrl, {
+      method: "HEAD",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Tus-Resumable": TUS_VERSION
+      }
+    });
+  } catch (error) {
+    return null;
+  }
 
   if (!response.ok) {
     return null;
@@ -144,16 +208,21 @@ async function uploadChunk({
           : offset + chunk.size;
       }
 
-      if (response.status < 500 && response.status !== 409) {
-        throw new Error(
-          `Storage rechazó una parte (${response.status}).`
-        );
+      const responseError = await getResponseError(
+        response,
+        "la transferencia de una parte"
+      );
+
+      if (!responseError.retryable) {
+        throw responseError;
       }
 
-      lastError = new Error(
-        `La subida fue interrumpida (${response.status}).`
-      );
+      lastError = responseError;
     } catch (error) {
+      if (error?.retryable === false) {
+        throw error;
+      }
+
       lastError = error;
     }
 
@@ -181,16 +250,41 @@ async function uploadResumable({
     getSupabaseConfig(),
     getAccessToken(client)
   ]);
-  const endpoint = `${getDirectStorageUrl(
-    config.url
-  )}/storage/v1/upload/resumable`;
-  const uploadUrl = await createResumableUpload({
-    endpoint,
-    accessToken,
-    bucket,
-    path,
-    file
-  });
+  const endpointPath = "/storage/v1/upload/resumable";
+  const endpoints = Array.from(new Set([
+    `${getDirectStorageUrl(config.url)}${endpointPath}`,
+    `${new URL(config.url).origin}${endpointPath}`
+  ]));
+  let uploadUrl = null;
+  let initializationError = null;
+
+  for (const endpoint of endpoints) {
+    try {
+      uploadUrl = await createResumableUpload({
+        endpoint,
+        accessToken,
+        bucket,
+        path,
+        file
+      });
+      break;
+    } catch (error) {
+      if (error?.status) {
+        throw error;
+      }
+
+      initializationError = error;
+    }
+  }
+
+  if (!uploadUrl) {
+    throw new Error(
+      `No se pudo conectar con Supabase Storage. ${
+        initializationError?.message ||
+        "Revisa la conexión e intenta nuevamente."
+      }`
+    );
+  }
   let offset = 0;
 
   while (offset < file.size) {
@@ -254,7 +348,22 @@ async function uploadStandard({
         return;
       }
 
-      reject(new Error("No se pudo subir el archivo a Storage."));
+      let detail = request.responseText;
+
+      try {
+        const payload = JSON.parse(request.responseText);
+        detail = payload.message || payload.error || request.responseText;
+      } catch (error) {
+        // La respuesta puede ser texto plano.
+      }
+
+      reject(
+        createStorageError(
+          request.status,
+          "la subida del archivo",
+          detail
+        )
+      );
     });
     request.addEventListener("error", () => {
       reject(new Error("Falló la conexión durante la subida."));

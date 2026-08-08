@@ -52,6 +52,8 @@ const uploadProgress = document.querySelector("#upload-progress");
 const uploadProgressLabel = document.querySelector(
   "#upload-progress-label"
 );
+const uploadStage = document.querySelector("#upload-stage");
+const uploadDetail = document.querySelector("#upload-detail");
 const originalVideoSize = document.querySelector("#original-video-size");
 const optimizedVideoSize = document.querySelector("#optimized-video-size");
 const optimizedVideoSavings = document.querySelector(
@@ -135,15 +137,45 @@ function resetOptimization() {
 
 function setUploadProgress(value) {
   const normalizedValue = Math.min(1, Math.max(0, value));
+  const percentage = Math.round(normalizedValue * 100);
   uploadPanel.hidden = false;
+  uploadPanel.dataset.state = "uploading";
   uploadProgress.value = normalizedValue;
-  uploadProgressLabel.textContent = `${Math.round(normalizedValue * 100)}%`;
+  uploadProgressLabel.textContent = `${percentage}%`;
+
+  if (normalizedValue < 0.8) {
+    uploadStage.textContent = "Subiendo video";
+    uploadDetail.textContent =
+      "La transferencia continúa por bloques si la conexión se interrumpe.";
+  } else if (normalizedValue < 0.96) {
+    uploadStage.textContent = "Subiendo miniatura";
+    uploadDetail.textContent = "El video ya fue transferido correctamente.";
+  } else {
+    uploadStage.textContent = "Guardando publicación";
+    uploadDetail.textContent = "Registrando la obra y su ubicación.";
+  }
+
+  if (isSubmitting) {
+    submitButton.textContent = `Subiendo ${percentage}%`;
+  }
 }
 
 function resetUploadProgress() {
   uploadPanel.hidden = true;
+  uploadPanel.dataset.state = "";
   uploadProgress.value = 0;
   uploadProgressLabel.textContent = "0%";
+  uploadStage.textContent = "Subiendo video";
+  uploadDetail.textContent = "Conexión segura con Supabase Storage";
+}
+
+function showUploadError(error) {
+  uploadPanel.hidden = false;
+  uploadPanel.dataset.state = "error";
+  uploadStage.textContent = "No se completó la subida";
+  uploadDetail.textContent =
+    error.message || "Revisa la configuración de Supabase e intenta nuevamente.";
+  submitButton.textContent = "Reintentar subida";
 }
 
 function updateSubmitAvailability() {
@@ -198,16 +230,10 @@ function renderMetrics() {
     (total, artwork) => total + (Number(artwork.video_size_bytes) || 0),
     0
   );
-  const savingsBytes = artworks.reduce((total, artwork) => {
-    const originalSize = Number(artwork.original_size_bytes) || 0;
-    const storedSize = Number(artwork.video_size_bytes) || 0;
-    return total + Math.max(0, originalSize - storedSize);
-  }, 0);
-
   metrics.total.textContent = `${artworks.length} / ${MAX_ARTWORKS}`;
   metrics.active.textContent = `${activeArtworks} / ${GALLERY_SLOTS.length}`;
   metrics.storage.textContent = formatFileSize(storageBytes);
-  metrics.savings.textContent = formatFileSize(savingsBytes);
+  metrics.savings.textContent = "45 MB";
   artworkCount.textContent = `${activeArtworks} activas · ${artworks.length} registradas`;
 }
 
@@ -465,10 +491,10 @@ async function saveArtwork(event) {
     resetForm();
     setStatus("Obra guardada correctamente.", "success");
   } catch (error) {
+    showUploadError(error);
     setStatus(error.message || "No se pudo guardar la obra.");
   } finally {
     isSubmitting = false;
-    resetUploadProgress();
     updateSubmitAvailability();
   }
 }

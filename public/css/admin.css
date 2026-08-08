@@ -293,27 +293,43 @@ h2 {
 }
 
 .admin-form-status {
+  position: sticky;
+  top: 78px;
+  z-index: 20;
   min-height: 22px;
-  margin: 0 0 12px;
+  margin: 0 0 18px;
+  padding: 12px 15px;
+  border: 1px solid rgba(255, 150, 157, 0.25);
+  border-radius: 12px;
   color: var(--admin-danger);
+  background: rgba(62, 17, 25, 0.94);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.24);
   line-height: 1.45;
 }
 
 .admin-form-status:empty {
   min-height: 0;
   margin: 0;
+  padding: 0;
+  border: 0;
 }
 
 .admin-form-status[data-type="success"] {
+  border-color: rgba(123, 214, 154, 0.24);
   color: var(--admin-success);
+  background: rgba(15, 55, 34, 0.94);
 }
 
 .admin-form-status[data-type="warning"] {
+  border-color: rgba(242, 198, 109, 0.26);
   color: var(--admin-warning);
+  background: rgba(59, 43, 15, 0.94);
 }
 
 .admin-form-status[data-type="info"] {
+  border-color: rgba(214, 175, 97, 0.25);
   color: var(--admin-gold);
+  background: rgba(52, 41, 18, 0.94);
 }
 
 .admin-hero {
@@ -376,7 +392,7 @@ h2 {
 .admin-section-heading,
 .admin-list-heading,
 .admin-optimizer__heading,
-.admin-upload-progress > div {
+.admin-upload-progress__heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -546,6 +562,37 @@ h2 {
 .admin-optimizer[data-state="ready"] {
   border-color: rgba(123, 214, 154, 0.24);
   background: rgba(123, 214, 154, 0.055);
+}
+
+.admin-upload-progress[data-state="uploading"] {
+  border-color: rgba(214, 175, 97, 0.3);
+}
+
+.admin-upload-progress[data-state="error"] {
+  border-color: rgba(255, 150, 157, 0.34);
+  background: rgba(200, 16, 46, 0.08);
+}
+
+.admin-upload-progress[data-state="error"] progress {
+  accent-color: var(--admin-danger);
+}
+
+.admin-upload-progress__heading > div {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-upload-progress__steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.admin-upload-progress__steps span {
+  padding: 7px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+  text-align: center;
 }
 
 .admin-optimizer__heading > div {

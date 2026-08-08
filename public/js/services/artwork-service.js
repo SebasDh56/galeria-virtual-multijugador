@@ -168,24 +168,7 @@ async function uploadAssets({
 }) {
   const videoPath = createAssetPath(artworkId, "mp4");
   const thumbnailPath = createAssetPath(artworkId, "webp");
-
-  await uploadWithProgress({
-    client,
-    bucket: VIDEO_BUCKET,
-    path: videoPath,
-    file: videoFile,
-    onProgress: (progress) => onProgress?.(progress * 0.8)
-  });
-
-  await uploadWithProgress({
-    client,
-    bucket: THUMBNAIL_BUCKET,
-    path: thumbnailPath,
-    file: thumbnailFile,
-    onProgress: (progress) => onProgress?.(0.8 + progress * 0.15)
-  });
-
-  return {
+  const assets = {
     videoPath,
     thumbnailPath,
     videoUrl: getPublicUrl(client, VIDEO_BUCKET, videoPath),
@@ -195,6 +178,29 @@ async function uploadAssets({
       thumbnailPath
     )
   };
+
+  try {
+    await uploadWithProgress({
+      client,
+      bucket: VIDEO_BUCKET,
+      path: videoPath,
+      file: videoFile,
+      onProgress: (progress) => onProgress?.(progress * 0.8)
+    });
+
+    await uploadWithProgress({
+      client,
+      bucket: THUMBNAIL_BUCKET,
+      path: thumbnailPath,
+      file: thumbnailFile,
+      onProgress: (progress) => onProgress?.(0.8 + progress * 0.15)
+    });
+
+    return assets;
+  } catch (error) {
+    await cleanupAssets(client, assets);
+    throw error;
+  }
 }
 
 async function cleanupAssets(client, assets) {
