@@ -17,8 +17,6 @@ const ARTWORK_COLUMNS = [
   "description",
   "video_path",
   "video_url",
-  "video_size_bytes",
-  "original_size_bytes",
   "thumbnail_path",
   "thumbnail_url",
   "slot_id",
@@ -82,51 +80,15 @@ async function fetchArtworkRows(client) {
     .select(ARTWORK_COLUMNS)
     .order("created_at", { ascending: false });
 
-  if (!response.error) {
-    return response.data || [];
-  }
-
-  const legacyResponse = await client
-    .from("artworks")
-    .select(
-      "id, title, author, description, video_path, video_url, thumbnail_path, thumbnail_url, slot_id, is_active, created_at, updated_at"
-    )
-    .order("created_at", { ascending: false });
-
-  if (legacyResponse.error) {
+  if (response.error) {
     throw new Error("No se pudieron cargar las obras.");
   }
 
-  return legacyResponse.data || [];
-}
-
-async function resolveStoredSize(client, artwork) {
-  if (Number(artwork.video_size_bytes) > 0) {
-    return artwork;
-  }
-
-  const pathParts = artwork.video_path.split("/");
-  const fileName = pathParts.pop();
-  const directory = pathParts.join("/");
-  const { data } = await client.storage
-    .from(VIDEO_BUCKET)
-    .list(directory, {
-      limit: 10,
-      search: fileName
-    });
-  const storedFile = data?.find((file) => file.name === fileName);
-
-  return {
-    ...artwork,
-    video_size_bytes: Number(storedFile?.metadata?.size) || 0
-  };
+  return response.data || [];
 }
 
 export async function fetchArtworks(client) {
-  const artworks = await fetchArtworkRows(client);
-  return Promise.all(
-    artworks.map((artwork) => resolveStoredSize(client, artwork))
-  );
+  return fetchArtworkRows(client);
 }
 
 export function findAvailableSlotId(artworks = []) {
@@ -248,9 +210,6 @@ export async function createArtwork({
         description: metadata.description,
         video_path: assets.videoPath,
         video_url: assets.videoUrl,
-        video_size_bytes: videoFile.size,
-        original_size_bytes:
-          Number(originalVideoSize) || videoFile.size,
         thumbnail_path: assets.thumbnailPath,
         thumbnail_url: assets.thumbnailUrl,
         slot_id: slotId,
@@ -315,9 +274,6 @@ export async function updateArtwork({
       Object.assign(changes, {
         video_path: newAssets.videoPath,
         video_url: newAssets.videoUrl,
-        video_size_bytes: videoFile.size,
-        original_size_bytes:
-          Number(originalVideoSize) || videoFile.size,
         thumbnail_path: newAssets.thumbnailPath,
         thumbnail_url: newAssets.thumbnailUrl
       });
